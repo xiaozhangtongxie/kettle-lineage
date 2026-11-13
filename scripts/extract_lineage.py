@@ -48,12 +48,18 @@ if DUMP:
         raw = open(DUMP, 'r', encoding='utf-8', errors='replace').read()
 else:
     print('[提示] 未提供 --dump：只解析 Kettle 侧血缘，CALL 到的存储过程内部读写表无法展开')
-header_re = re.compile(r'(?m)^CREATE\s+(?:OR\s+REPLACE\s+)?(PROCEDURE|FUNCTION)\s+([^\s(]+)')
+# 各家 DDL 头都能认：PG/Oracle 的 CREATE OR REPLACE、MySQL 的 CREATE DEFINER=`u`@`h`、
+# SQL Server 的 CREATE PROCEDURE [dbo].[sp]
+header_re = re.compile(r'(?m)^CREATE\s+(?:OR\s+REPLACE\s+)?'
+                       r'(?:DEFINER\s*=\s*\S+\s+)?'
+                       r'(PROCEDURE|FUNCTION|PROC)\s+([^\s(]+)')
 matches = list(header_re.finditer(raw))
 procs = {}
 for i, m in enumerate(matches):
     end = matches[i + 1].start() if i + 1 < len(matches) else len(raw)
-    procs.setdefault(m.group(2).strip().replace('"', '').lower(), raw[m.start():end])
+    # [dbo].[sp_x] → dbo.sp_x；`db`.`sp_x` → db.sp_x；"ods"."sp_x" → ods.sp_x
+    _pname = re.sub(r'[\[\]"`]', '', m.group(2).strip()).lower()
+    procs.setdefault(_pname, raw[m.start():end])
 
 IDENT = r'[\w\u4e00-\u9fff]+(?:\.[\w\u4e00-\u9fff]+){0,2}'
 WRITE_PAT = [re.compile(r'\bINSERT\s+INTO\s+(' + IDENT + ')', re.I),
@@ -65,7 +71,9 @@ WRITE_PAT = [re.compile(r'\bINSERT\s+INTO\s+(' + IDENT + ')', re.I),
                         r'(?:IF\s+NOT\s+EXISTS\s+)?(' + IDENT + ')', re.I)]
 READ_PAT = [re.compile(r'\bFROM\s+(' + IDENT + ')', re.I),
             re.compile(r'\bJOIN\s+(' + IDENT + ')', re.I)]
-CALL_RE = re.compile(r'\bCALL\s+((?:[\w\u4e00-\u9fff]+\.)?[\w\u4e00-\u9fff]+)\s*\(', re.I)
+# CALL 是标准写法；SQL Server 用 EXEC/EXECUTE。EXEC('...') 是动态 SQL，不取。
+CALL_RE = re.compile(r'\b(?:CALL|EXEC(?:UTE)?)\s+'
+                     r'((?:[\w\u4e00-\u9fff]+[.])?[\w\u4e00-\u9fff]+)\s*(?:[(;\s]|$)', re.I)
 EXCLUDE = {'select', '(', 'dual', 'unnest', 'generate_series', 'values', 'lateral'}
 NOISE_RE = re.compile(r'^(pg_|information_schema)')
 # 调度日志/审计类过程：各项目命名不同，按通用约定识别（sp_*_log / sp_*_logs 结尾）。

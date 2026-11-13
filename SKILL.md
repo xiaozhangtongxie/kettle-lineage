@@ -60,6 +60,25 @@ python scripts/run_all.py --dump "路径/过程导出.txt" --bat-dir "路径/作
 | `kjb` / `ktr` 文件 | ✅ | 与 bat 同级或上下 4 层目录内即可；bat 里写生产机绝对路径（`F:\...`）也没关系，按 basename 就近找 |
 | 存储过程全量导出 | 可选但强烈建议 | 一个文本文件，含多个 `CREATE [OR REPLACE] PROCEDURE/FUNCTION`。pgAdmin「导出全部」/ `pg_dump -s -n ods` 都行。没有它，`CALL` 到的过程只显示名字，内部表血缘展开不出来 |
 
+### 用户不知道怎么导出过程时，直接给这张表
+
+| 数据库 | 怎么做 |
+|---|---|
+| PostgreSQL | `pg_dump -h 主机 -U 用户 -d 库名 --schema-only -n schema -f procedures.sql` |
+| SQL Server | SSMS → 右键数据库 → Tasks → Generate Scripts → 勾 Stored Procedures → Advanced 里 `Types of data to script` 选 **Schema only** |
+| MySQL | `mysqldump -u root -p --routines --no-data --no-create-info 库名 > procedures.sql`（`--routines` 不能漏） |
+| Oracle | SQL Developer → 右键过程 → Export，或 `expdp CONTENT=METADATA_ONLY` |
+
+导出后自检数量：
+
+```bash
+grep -cE "CREATE +(OR +REPLACE +)?(PROCEDURE|FUNCTION|PROC) " procedures.sql
+```
+
+应等于库里过程数。完整步骤 / 图形界面 / 排错见 `docs/export-procedures.md`。
+
+程序兼容各家写法：`CREATE OR REPLACE`、`CREATE DEFINER=`u`@`h``（MySQL）、`CREATE PROCEDURE [dbo].[x]`（SQL Server，自动归一为 `dbo.x`）、`CREATE PROC`；调用侧 `CALL` / `EXEC` / `EXECUTE` 都识别（`EXEC('动态SQL')` 除外）。
+
 ## 库名自动探测（不用配）
 
 程序会从三个地方统计库名，**换任何项目都不用改代码或加参数**：

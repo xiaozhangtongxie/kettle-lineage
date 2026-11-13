@@ -84,6 +84,36 @@ python scripts/run_all.py --dump "D:/etl/procedures.txt" --bat-dir "D:/etl/data_
 | `kjb` / `ktr` | ✅ | 与 bat 同级或上下 4 层内；bat 写生产机绝对路径也能按 basename 找到 |
 | 存储过程导出 | 可选 | 含多个 `CREATE PROCEDURE/FUNCTION` 全文。没有则 `CALL` 只到过程名，表血缘展不开 |
 
+## 存储过程怎么导出（标准输入）
+
+`--dump` 要的是一份**纯文本文件**，里面是每个存储过程的**完整正文**（不是名字清单）。`.sql` / `.txt` 都行，UTF-8 编码。
+
+**PostgreSQL**
+
+```bash
+pg_dump -h 主机 -p 5432 -U 用户名 -d 数据库名 --schema-only -n ods -f procedures.sql
+```
+
+**SQL Server**（SSMS 图形界面）：右键数据库 → Tasks → Generate Scripts → 勾选 Stored Procedures → Advanced 里把 `Types of data to script` 设为 **Schema only** → 保存为单个 `.sql`
+
+**MySQL**
+
+```bash
+mysqldump -h 主机 -u root -p --routines --no-data --no-create-info 数据库名 > procedures.sql
+```
+
+> MySQL 的 `--routines` 不能漏，否则过程根本不导出。
+
+导出后数一下，应该和你库里过程数量对得上：
+
+```bash
+grep -cE "CREATE +(OR +REPLACE +)?(PROCEDURE|FUNCTION|PROC) " procedures.sql
+```
+
+各家写法都已兼容：`CREATE OR REPLACE`（PG/Oracle）、``CREATE DEFINER=`u`@`h` ``（MySQL）、`CREATE PROCEDURE [dbo].[x]`（SQL Server 自动归一为 `dbo.x`）、`CREATE PROC`；调用侧的 `CALL` / `EXEC` / `EXECUTE` 都认。
+
+📖 **pgAdmin 图形界面步骤、Oracle、导出后自检、常见问题** → [docs/export-procedures.md](docs/export-procedures.md)
+
 ## 库名自动探测
 
 不用配置。程序从三处统计库名并互相验证：
