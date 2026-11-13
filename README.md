@@ -88,31 +88,34 @@ python scripts/run_all.py --dump "D:/etl/procedures.txt" --bat-dir "D:/etl/data_
 
 `--dump` 要的是一份**纯文本文件**，里面是每个存储过程的**完整正文**（不是名字清单）。`.sql` / `.txt` 都行，UTF-8 编码。
 
-**PostgreSQL**
+### 最省事：DBeaver（PG / SQL Server / MySQL / Oracle 都通用）
 
-```bash
-pg_dump -h 主机 -p 5432 -U 用户名 -d 数据库名 --schema-only -n ods -f procedures.sql
-```
+1. 左侧导航树展开到 **Procedures**（函数在 **Functions** 下）
+2. **右键选中**要导的过程 —— 可以 Ctrl 多选，也可以直接右键整个 `Procedures` 文件夹
+3. 选 **SQL Editor → Generate SQL → DDL**（老版本是右键 → Generate SQL → DDL）
+4. 生成的窗口里 **Ctrl+A 全选 → 另存为** `procedures.sql`
 
-**SQL Server**（SSMS 图形界面）：右键数据库 → Tasks → Generate Scripts → 勾选 Stored Procedures → Advanced 里把 `Types of data to script` 设为 **Schema only** → 保存为单个 `.sql`
+不用记任何命令，DBeaver 会按你连的库自动生成对应方言的 DDL。
 
-**MySQL**
+### 或者用命令行 / 各家自带工具
 
-```bash
-mysqldump -h 主机 -u root -p --routines --no-data --no-create-info 数据库名 > procedures.sql
-```
+| 数据库 | 怎么做 |
+|---|---|
+| PostgreSQL | `pg_dump -h 主机 -U 用户 -d 库名 --schema-only -n schema -f procedures.sql` |
+| MySQL | `mysqldump -h 主机 -u root -p --routines --no-data --no-create-info 库名 > procedures.sql`<br>（`--routines` 不能漏，否则过程不导出） |
+| SQL Server | SSMS → 右键数据库 → Tasks → Generate Scripts → 勾 Stored Procedures → Advanced 里 `Types of data to script` 设 **Schema only** |
 
-> MySQL 的 `--routines` 不能漏，否则过程根本不导出。
-
-导出后数一下，应该和你库里过程数量对得上：
+### 导出后确认一下
 
 ```bash
 grep -cE "CREATE +(OR +REPLACE +)?(PROCEDURE|FUNCTION|PROC) " procedures.sql
 ```
 
+数字应该和你库里过程数量对得上。
+
 各家写法都已兼容：`CREATE OR REPLACE`（PG/Oracle）、``CREATE DEFINER=`u`@`h` ``（MySQL）、`CREATE PROCEDURE [dbo].[x]`（SQL Server 自动归一为 `dbo.x`）、`CREATE PROC`；调用侧的 `CALL` / `EXEC` / `EXECUTE` 都认。
 
-📖 **pgAdmin 图形界面步骤、Oracle、导出后自检、常见问题** → [docs/export-procedures.md](docs/export-procedures.md)
+📖 各库图形界面细节、Oracle、常见问题 → [docs/export-procedures.md](docs/export-procedures.md)
 
 ## 库名自动探测
 
