@@ -1,0 +1,1553 @@
+{
+ "chains": [
+  {
+   "name": "sync_sales_daily",
+   "bat": "sync_sales_daily.bat",
+   "kjb": "demo/sync_sales_daily.kjb",
+   "jobs": [
+    {
+     "id": "0-1",
+     "name": "ods_sync",
+     "kind": "JOB",
+     "seq": 1,
+     "color": "#00897b",
+     "procs": [
+      {
+       "n": "sp_ods_orders",
+       "w": 1,
+       "r": 1,
+       "t": [
+        {
+         "n": "erp_main.orders",
+         "l": "src",
+         "d": "r"
+        },
+        {
+         "n": "ods.orders",
+         "l": "ods",
+         "d": "w"
+        }
+       ]
+      },
+      {
+       "n": "sp_ods_order_items",
+       "w": 1,
+       "r": 1,
+       "t": [
+        {
+         "n": "erp_main.order_items",
+         "l": "src",
+         "d": "r"
+        },
+        {
+         "n": "ods.order_items",
+         "l": "ods",
+         "d": "w"
+        }
+       ]
+      },
+      {
+       "n": "sp_ods_customers",
+       "w": 1,
+       "r": 1,
+       "t": [
+        {
+         "n": "erp_main.customers",
+         "l": "src",
+         "d": "r"
+        },
+        {
+         "n": "ods.customers",
+         "l": "ods",
+         "d": "w"
+        }
+       ]
+      },
+      {
+       "n": "sp_ods_products",
+       "w": 1,
+       "r": 1,
+       "t": [
+        {
+         "n": "erp_main.products",
+         "l": "src",
+         "d": "r"
+        },
+        {
+         "n": "ods.products",
+         "l": "ods",
+         "d": "w"
+        }
+       ]
+      },
+      {
+       "n": "sp_ods_channels",
+       "w": 1,
+       "r": 1,
+       "t": [
+        {
+         "n": "erp_main.channels",
+         "l": "src",
+         "d": "r"
+        },
+        {
+         "n": "ods.channels",
+         "l": "ods",
+         "d": "w"
+        }
+       ]
+      },
+      {
+       "n": "sp_ods_regions",
+       "w": 1,
+       "r": 1,
+       "t": [
+        {
+         "n": "erp_main.regions",
+         "l": "src",
+         "d": "r"
+        },
+        {
+         "n": "ods.regions",
+         "l": "ods",
+         "d": "w"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "0-2",
+     "name": "dw_calc",
+     "kind": "JOB",
+     "seq": 2,
+     "color": "#6a1b9a",
+     "procs": [
+      {
+       "n": "sp_fact_sales_daily",
+       "w": 1,
+       "r": 3,
+       "t": [
+        {
+         "n": "dw.fact_sales_daily",
+         "l": "dw",
+         "d": "w"
+        },
+        {
+         "n": "ods.order_items",
+         "l": "ods",
+         "d": "r"
+        },
+        {
+         "n": "ods.orders",
+         "l": "ods",
+         "d": "r"
+        },
+        {
+         "n": "ods.products",
+         "l": "ods",
+         "d": "r"
+        }
+       ]
+      },
+      {
+       "n": "sp_fact_sales_channel",
+       "w": 1,
+       "r": 2,
+       "t": [
+        {
+         "n": "dw.fact_sales_channel",
+         "l": "dw",
+         "d": "w"
+        },
+        {
+         "n": "ods.channels",
+         "l": "ods",
+         "d": "r"
+        },
+        {
+         "n": "ods.orders",
+         "l": "ods",
+         "d": "r"
+        }
+       ]
+      },
+      {
+       "n": "sp_fact_customer_rfm",
+       "w": 1,
+       "r": 2,
+       "t": [
+        {
+         "n": "dw.fact_customer_rfm",
+         "l": "dw",
+         "d": "w"
+        },
+        {
+         "n": "ods.customers",
+         "l": "ods",
+         "d": "r"
+        },
+        {
+         "n": "ods.orders",
+         "l": "ods",
+         "d": "r"
+        }
+       ]
+      },
+      {
+       "n": "sp_dim_product",
+       "w": 1,
+       "r": 1,
+       "t": [
+        {
+         "n": "dw.dim_product",
+         "l": "dw",
+         "d": "w"
+        },
+        {
+         "n": "ods.products",
+         "l": "ods",
+         "d": "r"
+        }
+       ]
+      },
+      {
+       "n": "sp_dim_customer",
+       "w": 1,
+       "r": 2,
+       "t": [
+        {
+         "n": "dw.dim_customer",
+         "l": "dw",
+         "d": "w"
+        },
+        {
+         "n": "ods.customers",
+         "l": "ods",
+         "d": "r"
+        },
+        {
+         "n": "ods.regions",
+         "l": "ods",
+         "d": "r"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "0-3",
+     "name": "dm_load",
+     "kind": "JOB",
+     "seq": 3,
+     "color": "#e65100",
+     "procs": [
+      {
+       "n": "sp_dm_sales_summary",
+       "w": 1,
+       "r": 2,
+       "t": [
+        {
+         "n": "dm.sales_summary",
+         "l": "dm",
+         "d": "w"
+        },
+        {
+         "n": "dw.dim_product",
+         "l": "dw",
+         "d": "r"
+        },
+        {
+         "n": "dw.fact_sales_daily",
+         "l": "dw",
+         "d": "r"
+        }
+       ]
+      },
+      {
+       "n": "sp_dm_channel_report",
+       "w": 1,
+       "r": 1,
+       "t": [
+        {
+         "n": "dm.channel_report",
+         "l": "dm",
+         "d": "w"
+        },
+        {
+         "n": "dw.fact_sales_channel",
+         "l": "dw",
+         "d": "r"
+        }
+       ]
+      },
+      {
+       "n": "sp_dm_customer_profile",
+       "w": 1,
+       "r": 2,
+       "t": [
+        {
+         "n": "dm.customer_profile",
+         "l": "dm",
+         "d": "w"
+        },
+        {
+         "n": "dw.dim_customer",
+         "l": "dw",
+         "d": "r"
+        },
+        {
+         "n": "dw.fact_customer_rfm",
+         "l": "dw",
+         "d": "r"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "0-4",
+     "name": "data_check",
+     "kind": "JOB",
+     "seq": 4,
+     "color": "#2e7d32",
+     "procs": [
+      {
+       "n": "（SQL·data_check｜check_summary）",
+       "w": 0,
+       "r": 3,
+       "t": [
+        {
+         "n": "dm.channel_report",
+         "l": "dm",
+         "d": "r"
+        },
+        {
+         "n": "dm.customer_profile",
+         "l": "dm",
+         "d": "r"
+        },
+        {
+         "n": "dm.sales_summary",
+         "l": "dm",
+         "d": "r"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "sync_inventory_daily",
+   "bat": "sync_inventory_daily.bat",
+   "kjb": "demo/sync_inventory_daily.kjb",
+   "jobs": [
+    {
+     "id": "1-1",
+     "name": "ods_sync_inv",
+     "kind": "JOB",
+     "seq": 1,
+     "color": "#00897b",
+     "procs": [
+      {
+       "n": "sp_ods_inventory",
+       "w": 1,
+       "r": 1,
+       "t": [
+        {
+         "n": "erp_main.inventory",
+         "l": "src",
+         "d": "r"
+        },
+        {
+         "n": "ods.inventory",
+         "l": "ods",
+         "d": "w"
+        }
+       ]
+      },
+      {
+       "n": "sp_ods_warehouses",
+       "w": 1,
+       "r": 1,
+       "t": [
+        {
+         "n": "erp_main.warehouses",
+         "l": "src",
+         "d": "r"
+        },
+        {
+         "n": "ods.warehouses",
+         "l": "ods",
+         "d": "w"
+        }
+       ]
+      },
+      {
+       "n": "sp_ods_suppliers",
+       "w": 1,
+       "r": 1,
+       "t": [
+        {
+         "n": "erp_main.suppliers",
+         "l": "src",
+         "d": "r"
+        },
+        {
+         "n": "ods.suppliers",
+         "l": "ods",
+         "d": "w"
+        }
+       ]
+      },
+      {
+       "n": "sp_ods_stock_moves",
+       "w": 1,
+       "r": 1,
+       "t": [
+        {
+         "n": "erp_main.stock_moves",
+         "l": "src",
+         "d": "r"
+        },
+        {
+         "n": "ods.stock_moves",
+         "l": "ods",
+         "d": "w"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "1-2",
+     "name": "dw_inv",
+     "kind": "JOB",
+     "seq": 2,
+     "color": "#6a1b9a",
+     "procs": [
+      {
+       "n": "sp_fact_inventory_daily",
+       "w": 1,
+       "r": 2,
+       "t": [
+        {
+         "n": "dw.fact_inventory_daily",
+         "l": "dw",
+         "d": "w"
+        },
+        {
+         "n": "ods.inventory",
+         "l": "ods",
+         "d": "r"
+        },
+        {
+         "n": "ods.stock_moves",
+         "l": "ods",
+         "d": "r"
+        }
+       ]
+      },
+      {
+       "n": "sp_dim_warehouse",
+       "w": 1,
+       "r": 1,
+       "t": [
+        {
+         "n": "dw.dim_warehouse",
+         "l": "dw",
+         "d": "w"
+        },
+        {
+         "n": "ods.warehouses",
+         "l": "ods",
+         "d": "r"
+        }
+       ]
+      },
+      {
+       "n": "sp_dim_supplier",
+       "w": 1,
+       "r": 1,
+       "t": [
+        {
+         "n": "dw.dim_supplier",
+         "l": "dw",
+         "d": "w"
+        },
+        {
+         "n": "ods.suppliers",
+         "l": "ods",
+         "d": "r"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "1-3",
+     "name": "dm_inv",
+     "kind": "JOB",
+     "seq": 3,
+     "color": "#e65100",
+     "procs": [
+      {
+       "n": "sp_dm_inventory_age",
+       "w": 1,
+       "r": 2,
+       "t": [
+        {
+         "n": "dm.inventory_age",
+         "l": "dm",
+         "d": "w"
+        },
+        {
+         "n": "dw.dim_warehouse",
+         "l": "dw",
+         "d": "r"
+        },
+        {
+         "n": "dw.fact_inventory_daily",
+         "l": "dw",
+         "d": "r"
+        }
+       ]
+      },
+      {
+       "n": "sp_dm_stock_turnover",
+       "w": 1,
+       "r": 2,
+       "t": [
+        {
+         "n": "dm.stock_turnover",
+         "l": "dm",
+         "d": "w"
+        },
+        {
+         "n": "dw.dim_supplier",
+         "l": "dw",
+         "d": "r"
+        },
+        {
+         "n": "dw.fact_inventory_daily",
+         "l": "dw",
+         "d": "r"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "sync_finance_monthly",
+   "bat": "sync_finance_monthly.bat",
+   "kjb": "demo/sync_finance_monthly.kjb",
+   "jobs": [
+    {
+     "id": "2-1",
+     "name": "ods_fin",
+     "kind": "JOB",
+     "seq": 1,
+     "color": "#00897b",
+     "procs": [
+      {
+       "n": "sp_ods_invoices",
+       "w": 1,
+       "r": 1,
+       "t": [
+        {
+         "n": "erp_main.invoices",
+         "l": "src",
+         "d": "r"
+        },
+        {
+         "n": "ods.invoices",
+         "l": "ods",
+         "d": "w"
+        }
+       ]
+      },
+      {
+       "n": "sp_ods_payments",
+       "w": 1,
+       "r": 1,
+       "t": [
+        {
+         "n": "erp_main.payments",
+         "l": "src",
+         "d": "r"
+        },
+        {
+         "n": "ods.payments",
+         "l": "ods",
+         "d": "w"
+        }
+       ]
+      },
+      {
+       "n": "sp_ods_gl_entries",
+       "w": 1,
+       "r": 1,
+       "t": [
+        {
+         "n": "erp_main.gl_entries",
+         "l": "src",
+         "d": "r"
+        },
+        {
+         "n": "ods.gl_entries",
+         "l": "ods",
+         "d": "w"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "2-2",
+     "name": "dw_fin",
+     "kind": "JOB",
+     "seq": 2,
+     "color": "#6a1b9a",
+     "procs": [
+      {
+       "n": "sp_fact_revenue_monthly",
+       "w": 1,
+       "r": 2,
+       "t": [
+        {
+         "n": "dw.fact_revenue_monthly",
+         "l": "dw",
+         "d": "w"
+        },
+        {
+         "n": "ods.invoices",
+         "l": "ods",
+         "d": "r"
+        },
+        {
+         "n": "ods.payments",
+         "l": "ods",
+         "d": "r"
+        }
+       ]
+      },
+      {
+       "n": "sp_dim_account",
+       "w": 1,
+       "r": 1,
+       "t": [
+        {
+         "n": "dw.dim_account",
+         "l": "dw",
+         "d": "w"
+        },
+        {
+         "n": "ods.gl_entries",
+         "l": "ods",
+         "d": "r"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "2-3",
+     "name": "dm_fin",
+     "kind": "JOB",
+     "seq": 3,
+     "color": "#e65100",
+     "procs": [
+      {
+       "n": "sp_dm_finance_summary",
+       "w": 1,
+       "r": 2,
+       "t": [
+        {
+         "n": "dm.finance_summary",
+         "l": "dm",
+         "d": "w"
+        },
+        {
+         "n": "dw.dim_account",
+         "l": "dw",
+         "d": "r"
+        },
+        {
+         "n": "dw.fact_revenue_monthly",
+         "l": "dw",
+         "d": "r"
+        }
+       ]
+      },
+      {
+       "n": "sp_dm_ar_aging",
+       "w": 1,
+       "r": 2,
+       "t": [
+        {
+         "n": "dm.ar_aging",
+         "l": "dm",
+         "d": "w"
+        },
+        {
+         "n": "dw.fact_revenue_monthly",
+         "l": "dw",
+         "d": "r"
+        },
+        {
+         "n": "ods.payments",
+         "l": "ods",
+         "d": "r"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "tables": [
+  {
+   "n": "dm.ar_aging",
+   "l": "dm",
+   "w": [
+    "sp_dm_ar_aging"
+   ],
+   "r": []
+  },
+  {
+   "n": "dm.channel_report",
+   "l": "dm",
+   "w": [
+    "sp_dm_channel_report"
+   ],
+   "r": [
+    "（SQL·data_check｜check_summary）"
+   ]
+  },
+  {
+   "n": "dm.customer_profile",
+   "l": "dm",
+   "w": [
+    "sp_dm_customer_profile"
+   ],
+   "r": [
+    "（SQL·data_check｜check_summary）"
+   ]
+  },
+  {
+   "n": "dm.finance_summary",
+   "l": "dm",
+   "w": [
+    "sp_dm_finance_summary"
+   ],
+   "r": []
+  },
+  {
+   "n": "dm.inventory_age",
+   "l": "dm",
+   "w": [
+    "sp_dm_inventory_age"
+   ],
+   "r": []
+  },
+  {
+   "n": "dm.sales_summary",
+   "l": "dm",
+   "w": [
+    "sp_dm_sales_summary"
+   ],
+   "r": [
+    "（SQL·data_check｜check_summary）"
+   ]
+  },
+  {
+   "n": "dm.stock_turnover",
+   "l": "dm",
+   "w": [
+    "sp_dm_stock_turnover"
+   ],
+   "r": []
+  },
+  {
+   "n": "dw.dim_account",
+   "l": "dw",
+   "w": [
+    "sp_dim_account"
+   ],
+   "r": [
+    "sp_dm_finance_summary"
+   ]
+  },
+  {
+   "n": "dw.dim_customer",
+   "l": "dw",
+   "w": [
+    "sp_dim_customer"
+   ],
+   "r": [
+    "sp_dm_customer_profile"
+   ]
+  },
+  {
+   "n": "dw.dim_product",
+   "l": "dw",
+   "w": [
+    "sp_dim_product"
+   ],
+   "r": [
+    "sp_dm_sales_summary"
+   ]
+  },
+  {
+   "n": "dw.dim_supplier",
+   "l": "dw",
+   "w": [
+    "sp_dim_supplier"
+   ],
+   "r": [
+    "sp_dm_stock_turnover"
+   ]
+  },
+  {
+   "n": "dw.dim_warehouse",
+   "l": "dw",
+   "w": [
+    "sp_dim_warehouse"
+   ],
+   "r": [
+    "sp_dm_inventory_age"
+   ]
+  },
+  {
+   "n": "dw.fact_customer_rfm",
+   "l": "dw",
+   "w": [
+    "sp_fact_customer_rfm"
+   ],
+   "r": [
+    "sp_dm_customer_profile"
+   ]
+  },
+  {
+   "n": "dw.fact_inventory_daily",
+   "l": "dw",
+   "w": [
+    "sp_fact_inventory_daily"
+   ],
+   "r": [
+    "sp_dm_inventory_age",
+    "sp_dm_stock_turnover"
+   ]
+  },
+  {
+   "n": "dw.fact_revenue_monthly",
+   "l": "dw",
+   "w": [
+    "sp_fact_revenue_monthly"
+   ],
+   "r": [
+    "sp_dm_finance_summary",
+    "sp_dm_ar_aging"
+   ]
+  },
+  {
+   "n": "dw.fact_sales_channel",
+   "l": "dw",
+   "w": [
+    "sp_fact_sales_channel"
+   ],
+   "r": [
+    "sp_dm_channel_report"
+   ]
+  },
+  {
+   "n": "dw.fact_sales_daily",
+   "l": "dw",
+   "w": [
+    "sp_fact_sales_daily"
+   ],
+   "r": [
+    "sp_dm_sales_summary"
+   ]
+  },
+  {
+   "n": "ods.channels",
+   "l": "ods",
+   "w": [
+    "sp_ods_channels"
+   ],
+   "r": [
+    "sp_fact_sales_channel"
+   ]
+  },
+  {
+   "n": "ods.customers",
+   "l": "ods",
+   "w": [
+    "sp_ods_customers"
+   ],
+   "r": [
+    "sp_fact_customer_rfm",
+    "sp_dim_customer"
+   ]
+  },
+  {
+   "n": "ods.gl_entries",
+   "l": "ods",
+   "w": [
+    "sp_ods_gl_entries"
+   ],
+   "r": [
+    "sp_dim_account"
+   ]
+  },
+  {
+   "n": "ods.inventory",
+   "l": "ods",
+   "w": [
+    "sp_ods_inventory"
+   ],
+   "r": [
+    "sp_fact_inventory_daily"
+   ]
+  },
+  {
+   "n": "ods.invoices",
+   "l": "ods",
+   "w": [
+    "sp_ods_invoices"
+   ],
+   "r": [
+    "sp_fact_revenue_monthly"
+   ]
+  },
+  {
+   "n": "ods.order_items",
+   "l": "ods",
+   "w": [
+    "sp_ods_order_items"
+   ],
+   "r": [
+    "sp_fact_sales_daily"
+   ]
+  },
+  {
+   "n": "ods.orders",
+   "l": "ods",
+   "w": [
+    "sp_ods_orders"
+   ],
+   "r": [
+    "sp_fact_sales_daily",
+    "sp_fact_sales_channel",
+    "sp_fact_customer_rfm"
+   ]
+  },
+  {
+   "n": "ods.payments",
+   "l": "ods",
+   "w": [
+    "sp_ods_payments"
+   ],
+   "r": [
+    "sp_fact_revenue_monthly",
+    "sp_dm_ar_aging"
+   ]
+  },
+  {
+   "n": "ods.products",
+   "l": "ods",
+   "w": [
+    "sp_ods_products"
+   ],
+   "r": [
+    "sp_fact_sales_daily",
+    "sp_dim_product"
+   ]
+  },
+  {
+   "n": "ods.regions",
+   "l": "ods",
+   "w": [
+    "sp_ods_regions"
+   ],
+   "r": [
+    "sp_dim_customer"
+   ]
+  },
+  {
+   "n": "ods.stock_moves",
+   "l": "ods",
+   "w": [
+    "sp_ods_stock_moves"
+   ],
+   "r": [
+    "sp_fact_inventory_daily"
+   ]
+  },
+  {
+   "n": "ods.suppliers",
+   "l": "ods",
+   "w": [
+    "sp_ods_suppliers"
+   ],
+   "r": [
+    "sp_dim_supplier"
+   ]
+  },
+  {
+   "n": "ods.warehouses",
+   "l": "ods",
+   "w": [
+    "sp_ods_warehouses"
+   ],
+   "r": [
+    "sp_dim_warehouse"
+   ]
+  },
+  {
+   "n": "erp_main.channels",
+   "l": "src",
+   "w": [],
+   "r": [
+    "sp_ods_channels"
+   ]
+  },
+  {
+   "n": "erp_main.customers",
+   "l": "src",
+   "w": [],
+   "r": [
+    "sp_ods_customers"
+   ]
+  },
+  {
+   "n": "erp_main.gl_entries",
+   "l": "src",
+   "w": [],
+   "r": [
+    "sp_ods_gl_entries"
+   ]
+  },
+  {
+   "n": "erp_main.inventory",
+   "l": "src",
+   "w": [],
+   "r": [
+    "sp_ods_inventory"
+   ]
+  },
+  {
+   "n": "erp_main.invoices",
+   "l": "src",
+   "w": [],
+   "r": [
+    "sp_ods_invoices"
+   ]
+  },
+  {
+   "n": "erp_main.order_items",
+   "l": "src",
+   "w": [],
+   "r": [
+    "sp_ods_order_items"
+   ]
+  },
+  {
+   "n": "erp_main.orders",
+   "l": "src",
+   "w": [],
+   "r": [
+    "sp_ods_orders"
+   ]
+  },
+  {
+   "n": "erp_main.payments",
+   "l": "src",
+   "w": [],
+   "r": [
+    "sp_ods_payments"
+   ]
+  },
+  {
+   "n": "erp_main.products",
+   "l": "src",
+   "w": [],
+   "r": [
+    "sp_ods_products"
+   ]
+  },
+  {
+   "n": "erp_main.regions",
+   "l": "src",
+   "w": [],
+   "r": [
+    "sp_ods_regions"
+   ]
+  },
+  {
+   "n": "erp_main.stock_moves",
+   "l": "src",
+   "w": [],
+   "r": [
+    "sp_ods_stock_moves"
+   ]
+  },
+  {
+   "n": "erp_main.suppliers",
+   "l": "src",
+   "w": [],
+   "r": [
+    "sp_ods_suppliers"
+   ]
+  },
+  {
+   "n": "erp_main.warehouses",
+   "l": "src",
+   "w": [],
+   "r": [
+    "sp_ods_warehouses"
+   ]
+  }
+ ],
+ "edges": [
+  [
+   36,
+   23,
+   "sp_ods_orders"
+  ],
+  [
+   35,
+   22,
+   "sp_ods_order_items"
+  ],
+  [
+   31,
+   18,
+   "sp_ods_customers"
+  ],
+  [
+   38,
+   25,
+   "sp_ods_products"
+  ],
+  [
+   30,
+   17,
+   "sp_ods_channels"
+  ],
+  [
+   39,
+   26,
+   "sp_ods_regions"
+  ],
+  [
+   23,
+   16,
+   "sp_fact_sales_daily"
+  ],
+  [
+   22,
+   16,
+   "sp_fact_sales_daily"
+  ],
+  [
+   25,
+   16,
+   "sp_fact_sales_daily"
+  ],
+  [
+   23,
+   15,
+   "sp_fact_sales_channel"
+  ],
+  [
+   17,
+   15,
+   "sp_fact_sales_channel"
+  ],
+  [
+   18,
+   12,
+   "sp_fact_customer_rfm"
+  ],
+  [
+   23,
+   12,
+   "sp_fact_customer_rfm"
+  ],
+  [
+   25,
+   9,
+   "sp_dim_product"
+  ],
+  [
+   18,
+   8,
+   "sp_dim_customer"
+  ],
+  [
+   26,
+   8,
+   "sp_dim_customer"
+  ],
+  [
+   16,
+   5,
+   "sp_dm_sales_summary"
+  ],
+  [
+   9,
+   5,
+   "sp_dm_sales_summary"
+  ],
+  [
+   15,
+   1,
+   "sp_dm_channel_report"
+  ],
+  [
+   12,
+   2,
+   "sp_dm_customer_profile"
+  ],
+  [
+   8,
+   2,
+   "sp_dm_customer_profile"
+  ],
+  [
+   33,
+   20,
+   "sp_ods_inventory"
+  ],
+  [
+   42,
+   29,
+   "sp_ods_warehouses"
+  ],
+  [
+   41,
+   28,
+   "sp_ods_suppliers"
+  ],
+  [
+   40,
+   27,
+   "sp_ods_stock_moves"
+  ],
+  [
+   20,
+   13,
+   "sp_fact_inventory_daily"
+  ],
+  [
+   27,
+   13,
+   "sp_fact_inventory_daily"
+  ],
+  [
+   29,
+   11,
+   "sp_dim_warehouse"
+  ],
+  [
+   28,
+   10,
+   "sp_dim_supplier"
+  ],
+  [
+   13,
+   4,
+   "sp_dm_inventory_age"
+  ],
+  [
+   11,
+   4,
+   "sp_dm_inventory_age"
+  ],
+  [
+   13,
+   6,
+   "sp_dm_stock_turnover"
+  ],
+  [
+   10,
+   6,
+   "sp_dm_stock_turnover"
+  ],
+  [
+   34,
+   21,
+   "sp_ods_invoices"
+  ],
+  [
+   37,
+   24,
+   "sp_ods_payments"
+  ],
+  [
+   32,
+   19,
+   "sp_ods_gl_entries"
+  ],
+  [
+   21,
+   14,
+   "sp_fact_revenue_monthly"
+  ],
+  [
+   24,
+   14,
+   "sp_fact_revenue_monthly"
+  ],
+  [
+   19,
+   7,
+   "sp_dim_account"
+  ],
+  [
+   14,
+   3,
+   "sp_dm_finance_summary"
+  ],
+  [
+   7,
+   3,
+   "sp_dm_finance_summary"
+  ],
+  [
+   14,
+   0,
+   "sp_dm_ar_aging"
+  ],
+  [
+   24,
+   0,
+   "sp_dm_ar_aging"
+  ]
+ ],
+ "procJobs": {
+  "sp_ods_orders": [
+   [
+    "sync_sales_daily",
+    "ods_sync",
+    1
+   ]
+  ],
+  "sp_ods_order_items": [
+   [
+    "sync_sales_daily",
+    "ods_sync",
+    1
+   ]
+  ],
+  "sp_ods_customers": [
+   [
+    "sync_sales_daily",
+    "ods_sync",
+    1
+   ]
+  ],
+  "sp_ods_products": [
+   [
+    "sync_sales_daily",
+    "ods_sync",
+    1
+   ]
+  ],
+  "sp_ods_channels": [
+   [
+    "sync_sales_daily",
+    "ods_sync",
+    1
+   ]
+  ],
+  "sp_ods_regions": [
+   [
+    "sync_sales_daily",
+    "ods_sync",
+    1
+   ]
+  ],
+  "sp_fact_sales_daily": [
+   [
+    "sync_sales_daily",
+    "dw_calc",
+    2
+   ]
+  ],
+  "sp_fact_sales_channel": [
+   [
+    "sync_sales_daily",
+    "dw_calc",
+    2
+   ]
+  ],
+  "sp_fact_customer_rfm": [
+   [
+    "sync_sales_daily",
+    "dw_calc",
+    2
+   ]
+  ],
+  "sp_dim_product": [
+   [
+    "sync_sales_daily",
+    "dw_calc",
+    2
+   ]
+  ],
+  "sp_dim_customer": [
+   [
+    "sync_sales_daily",
+    "dw_calc",
+    2
+   ]
+  ],
+  "sp_dm_sales_summary": [
+   [
+    "sync_sales_daily",
+    "dm_load",
+    3
+   ]
+  ],
+  "sp_dm_channel_report": [
+   [
+    "sync_sales_daily",
+    "dm_load",
+    3
+   ]
+  ],
+  "sp_dm_customer_profile": [
+   [
+    "sync_sales_daily",
+    "dm_load",
+    3
+   ]
+  ],
+  "（SQL·data_check｜check_summary）": [
+   [
+    "sync_sales_daily",
+    "data_check",
+    4
+   ]
+  ],
+  "sp_ods_inventory": [
+   [
+    "sync_inventory_daily",
+    "ods_sync_inv",
+    1
+   ]
+  ],
+  "sp_ods_warehouses": [
+   [
+    "sync_inventory_daily",
+    "ods_sync_inv",
+    1
+   ]
+  ],
+  "sp_ods_suppliers": [
+   [
+    "sync_inventory_daily",
+    "ods_sync_inv",
+    1
+   ]
+  ],
+  "sp_ods_stock_moves": [
+   [
+    "sync_inventory_daily",
+    "ods_sync_inv",
+    1
+   ]
+  ],
+  "sp_fact_inventory_daily": [
+   [
+    "sync_inventory_daily",
+    "dw_inv",
+    2
+   ]
+  ],
+  "sp_dim_warehouse": [
+   [
+    "sync_inventory_daily",
+    "dw_inv",
+    2
+   ]
+  ],
+  "sp_dim_supplier": [
+   [
+    "sync_inventory_daily",
+    "dw_inv",
+    2
+   ]
+  ],
+  "sp_dm_inventory_age": [
+   [
+    "sync_inventory_daily",
+    "dm_inv",
+    3
+   ]
+  ],
+  "sp_dm_stock_turnover": [
+   [
+    "sync_inventory_daily",
+    "dm_inv",
+    3
+   ]
+  ],
+  "sp_ods_invoices": [
+   [
+    "sync_finance_monthly",
+    "ods_fin",
+    1
+   ]
+  ],
+  "sp_ods_payments": [
+   [
+    "sync_finance_monthly",
+    "ods_fin",
+    1
+   ]
+  ],
+  "sp_ods_gl_entries": [
+   [
+    "sync_finance_monthly",
+    "ods_fin",
+    1
+   ]
+  ],
+  "sp_fact_revenue_monthly": [
+   [
+    "sync_finance_monthly",
+    "dw_fin",
+    2
+   ]
+  ],
+  "sp_dim_account": [
+   [
+    "sync_finance_monthly",
+    "dw_fin",
+    2
+   ]
+  ],
+  "sp_dm_finance_summary": [
+   [
+    "sync_finance_monthly",
+    "dm_fin",
+    3
+   ]
+  ],
+  "sp_dm_ar_aging": [
+   [
+    "sync_finance_monthly",
+    "dm_fin",
+    3
+   ]
+  ]
+ }
+}

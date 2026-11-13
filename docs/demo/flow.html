@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="UTF-8"><title>Kettle 数据流：作业 → 存储过程 → 表</title>
+<style>
+*{box-sizing:border-box;margin:0}
+body{font-family:"Microsoft YaHei",sans-serif;background:#fafbfc;overflow:hidden;color:#23282e}
+header{height:52px;background:#fff;border-bottom:1px solid #e5e9ee;display:flex;align-items:center;gap:14px;padding:0 16px;position:relative;z-index:5}
+h1{font-size:15px;font-weight:700;color:#12263f}
+.tag{font-size:12px;color:#6b7785;background:#f1f4f8;border-radius:11px;padding:2px 9px}
+.spacer{flex:1}
+input{width:230px;padding:5px 10px;border:1px solid #d5dce4;border-radius:5px;font-size:12.5px;outline:none}
+input:focus{border-color:#2f6fd0}
+label.sw{font-size:12px;color:#4a5560;display:flex;align-items:center;gap:4px;cursor:pointer}
+button{font-size:12px;padding:4px 10px;border:1px solid #d5dce4;background:#fff;border-radius:5px;cursor:pointer;color:#3a4652}
+button:hover{background:#f2f6fb;border-color:#b9c9dc}
+#cols{position:fixed;top:52px;left:0;right:0;bottom:0;overflow:hidden;cursor:grab}
+#cols.pan{cursor:grabbing}
+#stage{position:absolute;left:0;top:0;transform-origin:0 0}
+.chead{position:absolute;font-size:12px;color:#5a6673;font-weight:700;letter-spacing:.5px}
+.chainlab{position:absolute;font-size:12px;color:#8a95a1}
+.node{position:absolute;display:flex;align-items:center;gap:8px;border-radius:7px;cursor:pointer;user-select:none;
+      background:#fff;border:1px solid #e1e7ee;box-shadow:0 1px 2px rgba(16,32,64,.05);padding:0 10px}
+.node:hover{border-color:#b9cbe2;box-shadow:0 2px 8px rgba(16,32,64,.1)}
+.node .bar{width:3px;height:60%;border-radius:2px;flex:none}
+.node .t{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.node .m{font-size:11px;color:#8a95a1;white-space:nowrap;margin-left:auto;flex:none}
+.node.job.sel{background:#eef5fe;border-color:#2f6fd0}
+.node.job.dim{opacity:.42}
+.node.proc{padding:0 9px}
+.node.proc .t{font-size:12px;color:#3d4c5c}
+.node.proc.sel{background:#f6ecfd;border-color:#8e24aa}
+.node.big{background:#fff;border:1.5px dashed #c8d4e2;justify-content:center;color:#7b8794;font-size:12px}
+.pill{position:absolute;display:flex;align-items:center;gap:5px;height:19px;padding:0 7px;border-radius:5px;
+      font-size:11.5px;white-space:nowrap;cursor:pointer;background:#f4f6f8;color:#3d4c5c;border:1px solid transparent}
+.pill:hover{border-color:#9fb6cf}
+.pill.sel{outline:1.5px solid #e65100;background:#fff4ec}
+.pill .sm{width:6px;height:6px;border-radius:50%;flex:none}
+.s-src{background:#fff1e6;color:#a63d0d}.s-ods{background:#e9f1fe;color:#134a9c}
+.s-dw{background:#fff8e1;color:#7a5f00}.s-dm{background:#f5ebfb;color:#5f1487}
+.s-his{background:#eef1f5;color:#4e5a66}.s-misc{background:#f1f3f5;color:#5b6673}
+.grp{position:absolute;font-size:11px;color:#98a3ae;font-weight:700;letter-spacing:.5px}
+svg{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
+#zoom{position:fixed;right:14px;bottom:14px;display:flex;flex-direction:column;gap:6px;z-index:5}
+#ribbon{display:none;position:fixed;left:14px;top:62px;z-index:7;background:#fff;border:1px solid #dde5ee;
+        border-radius:8px;padding:7px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 3px 12px rgba(16,32,64,.09);font-size:12.5px}
+#ribbon b{color:#12263f;font-size:13.5px}
+#ribbon button{border:1px solid #d5dce4;background:#fff;border-radius:5px;padding:3px 9px;font-size:12px;cursor:pointer;color:#3a4652}
+#ribbon button:hover{background:#f2f6fb}
+#focusPanel{display:none;position:fixed;right:0;top:52px;bottom:0;width:322px;background:#fff;border-left:1px solid #e5e9ee;
+            overflow:auto;padding:12px 14px;z-index:6;font-size:12.5px;box-shadow:-2px 0 12px rgba(16,32,64,.05)}
+#focusPanel .kv{display:flex;justify-content:space-between;padding:3px 0;color:#41505f}
+#focusPanel .kv b{color:#12263f}
+#focusPanel h3{font-size:11.5px;color:#7b8794;margin:12px 0 5px;letter-spacing:.4px}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{background:#f1f4f8;border-radius:10px;padding:1px 8px;font-size:11.5px;color:#41505f;cursor:pointer;white-space:nowrap}
+.chip:hover{background:#dbe9ff;color:#12489c}
+.chip.proc{background:#f5ebfb;color:#5f1487}
+.chip.job{background:#e9f1fe;color:#12489c}
+.warn{background:#fff8e1;border:1px solid #ffe0a3;color:#7a5b00;border-radius:6px;padding:7px 9px;font-size:12px;line-height:1.5;margin-top:10px}
+
+#zoom button{width:32px;height:30px;font-size:15px}
+#hint{position:fixed;left:16px;bottom:14px;font-size:11.5px;color:#8a95a1;z-index:5;background:rgba(255,255,255,.9);
+      padding:5px 10px;border-radius:6px;border:1px solid #eef1f5}
+#tip{position:fixed;pointer-events:none;background:#12263f;color:#fff;font-size:11.5px;padding:4px 8px;
+     border-radius:5px;opacity:0;transition:opacity .12s;z-index:20;max-width:420px;line-height:1.5}
+</style></head><body>
+<header>
+  <h1>Kettle 数据流</h1>
+  <span class="tag" id="stat"></span>
+  <span class="spacer"></span>
+  <label class="sw"><input type="checkbox" id="showRead" checked> 显示读取（虚线）</label>
+  <input id="q" placeholder="搜索作业 / 过程 / 表，回车">
+  <button onclick="reset()">重置视图</button>
+</header>
+<div id="ribbon">
+  <button id="backBtn">← 返回作业视图</button>
+  <button id="deepBtn">展开更远 2 层</button>
+  <b id="rbName"></b>
+  <span class="tag" id="rbLay"></span>
+  <span class="tag" id="rbStat"></span>
+</div>
+<aside id="focusPanel"></aside>
+<div id="cols"><div id="stage"><svg id="edges"></svg></div></div>
+<div id="zoom"><button onclick="zoomBy(1.18)">+</button><button onclick="zoomBy(1/1.18)">−</button></div>
+<div id="hint">点左侧作业 → 展开它用到的存储过程 → 点过程高亮读写的表 ｜ 实线=写入，虚线=读取 ｜ 滚轮缩放、拖拽平移</div>
+<div id="tip"></div>
+<script>
+const D = {"chains": [{"name": "sync_sales_daily", "bat": "sync_sales_daily.bat", "kjb": "demo/sync_sales_daily.kjb", "jobs": [{"id": "0-1", "name": "ods_sync", "kind": "JOB", "seq": 1, "color": "#00897b", "procs": [{"n": "sp_ods_orders", "w": 1, "r": 1, "t": [{"n": "erp_main.orders", "l": "src", "d": "r"}, {"n": "ods.orders", "l": "ods", "d": "w"}]}, {"n": "sp_ods_order_items", "w": 1, "r": 1, "t": [{"n": "erp_main.order_items", "l": "src", "d": "r"}, {"n": "ods.order_items", "l": "ods", "d": "w"}]}, {"n": "sp_ods_customers", "w": 1, "r": 1, "t": [{"n": "erp_main.customers", "l": "src", "d": "r"}, {"n": "ods.customers", "l": "ods", "d": "w"}]}, {"n": "sp_ods_products", "w": 1, "r": 1, "t": [{"n": "erp_main.products", "l": "src", "d": "r"}, {"n": "ods.products", "l": "ods", "d": "w"}]}, {"n": "sp_ods_channels", "w": 1, "r": 1, "t": [{"n": "erp_main.channels", "l": "src", "d": "r"}, {"n": "ods.channels", "l": "ods", "d": "w"}]}, {"n": "sp_ods_regions", "w": 1, "r": 1, "t": [{"n": "erp_main.regions", "l": "src", "d": "r"}, {"n": "ods.regions", "l": "ods", "d": "w"}]}]}, {"id": "0-2", "name": "dw_calc", "kind": "JOB", "seq": 2, "color": "#6a1b9a", "procs": [{"n": "sp_fact_sales_daily", "w": 1, "r": 3, "t": [{"n": "dw.fact_sales_daily", "l": "dw", "d": "w"}, {"n": "ods.order_items", "l": "ods", "d": "r"}, {"n": "ods.orders", "l": "ods", "d": "r"}, {"n": "ods.products", "l": "ods", "d": "r"}]}, {"n": "sp_fact_sales_channel", "w": 1, "r": 2, "t": [{"n": "dw.fact_sales_channel", "l": "dw", "d": "w"}, {"n": "ods.channels", "l": "ods", "d": "r"}, {"n": "ods.orders", "l": "ods", "d": "r"}]}, {"n": "sp_fact_customer_rfm", "w": 1, "r": 2, "t": [{"n": "dw.fact_customer_rfm", "l": "dw", "d": "w"}, {"n": "ods.customers", "l": "ods", "d": "r"}, {"n": "ods.orders", "l": "ods", "d": "r"}]}, {"n": "sp_dim_product", "w": 1, "r": 1, "t": [{"n": "dw.dim_product", "l": "dw", "d": "w"}, {"n": "ods.products", "l": "ods", "d": "r"}]}, {"n": "sp_dim_customer", "w": 1, "r": 2, "t": [{"n": "dw.dim_customer", "l": "dw", "d": "w"}, {"n": "ods.customers", "l": "ods", "d": "r"}, {"n": "ods.regions", "l": "ods", "d": "r"}]}]}, {"id": "0-3", "name": "dm_load", "kind": "JOB", "seq": 3, "color": "#e65100", "procs": [{"n": "sp_dm_sales_summary", "w": 1, "r": 2, "t": [{"n": "dm.sales_summary", "l": "dm", "d": "w"}, {"n": "dw.dim_product", "l": "dw", "d": "r"}, {"n": "dw.fact_sales_daily", "l": "dw", "d": "r"}]}, {"n": "sp_dm_channel_report", "w": 1, "r": 1, "t": [{"n": "dm.channel_report", "l": "dm", "d": "w"}, {"n": "dw.fact_sales_channel", "l": "dw", "d": "r"}]}, {"n": "sp_dm_customer_profile", "w": 1, "r": 2, "t": [{"n": "dm.customer_profile", "l": "dm", "d": "w"}, {"n": "dw.dim_customer", "l": "dw", "d": "r"}, {"n": "dw.fact_customer_rfm", "l": "dw", "d": "r"}]}]}, {"id": "0-4", "name": "data_check", "kind": "JOB", "seq": 4, "color": "#2e7d32", "procs": [{"n": "（SQL·data_check｜check_summary）", "w": 0, "r": 3, "t": [{"n": "dm.channel_report", "l": "dm", "d": "r"}, {"n": "dm.customer_profile", "l": "dm", "d": "r"}, {"n": "dm.sales_summary", "l": "dm", "d": "r"}]}]}]}, {"name": "sync_inventory_daily", "bat": "sync_inventory_daily.bat", "kjb": "demo/sync_inventory_daily.kjb", "jobs": [{"id": "1-1", "name": "ods_sync_inv", "kind": "JOB", "seq": 1, "color": "#00897b", "procs": [{"n": "sp_ods_inventory", "w": 1, "r": 1, "t": [{"n": "erp_main.inventory", "l": "src", "d": "r"}, {"n": "ods.inventory", "l": "ods", "d": "w"}]}, {"n": "sp_ods_warehouses", "w": 1, "r": 1, "t": [{"n": "erp_main.warehouses", "l": "src", "d": "r"}, {"n": "ods.warehouses", "l": "ods", "d": "w"}]}, {"n": "sp_ods_suppliers", "w": 1, "r": 1, "t": [{"n": "erp_main.suppliers", "l": "src", "d": "r"}, {"n": "ods.suppliers", "l": "ods", "d": "w"}]}, {"n": "sp_ods_stock_moves", "w": 1, "r": 1, "t": [{"n": "erp_main.stock_moves", "l": "src", "d": "r"}, {"n": "ods.stock_moves", "l": "ods", "d": "w"}]}]}, {"id": "1-2", "name": "dw_inv", "kind": "JOB", "seq": 2, "color": "#6a1b9a", "procs": [{"n": "sp_fact_inventory_daily", "w": 1, "r": 2, "t": [{"n": "dw.fact_inventory_daily", "l": "dw", "d": "w"}, {"n": "ods.inventory", "l": "ods", "d": "r"}, {"n": "ods.stock_moves", "l": "ods", "d": "r"}]}, {"n": "sp_dim_warehouse", "w": 1, "r": 1, "t": [{"n": "dw.dim_warehouse", "l": "dw", "d": "w"}, {"n": "ods.warehouses", "l": "ods", "d": "r"}]}, {"n": "sp_dim_supplier", "w": 1, "r": 1, "t": [{"n": "dw.dim_supplier", "l": "dw", "d": "w"}, {"n": "ods.suppliers", "l": "ods", "d": "r"}]}]}, {"id": "1-3", "name": "dm_inv", "kind": "JOB", "seq": 3, "color": "#e65100", "procs": [{"n": "sp_dm_inventory_age", "w": 1, "r": 2, "t": [{"n": "dm.inventory_age", "l": "dm", "d": "w"}, {"n": "dw.dim_warehouse", "l": "dw", "d": "r"}, {"n": "dw.fact_inventory_daily", "l": "dw", "d": "r"}]}, {"n": "sp_dm_stock_turnover", "w": 1, "r": 2, "t": [{"n": "dm.stock_turnover", "l": "dm", "d": "w"}, {"n": "dw.dim_supplier", "l": "dw", "d": "r"}, {"n": "dw.fact_inventory_daily", "l": "dw", "d": "r"}]}]}]}, {"name": "sync_finance_monthly", "bat": "sync_finance_monthly.bat", "kjb": "demo/sync_finance_monthly.kjb", "jobs": [{"id": "2-1", "name": "ods_fin", "kind": "JOB", "seq": 1, "color": "#00897b", "procs": [{"n": "sp_ods_invoices", "w": 1, "r": 1, "t": [{"n": "erp_main.invoices", "l": "src", "d": "r"}, {"n": "ods.invoices", "l": "ods", "d": "w"}]}, {"n": "sp_ods_payments", "w": 1, "r": 1, "t": [{"n": "erp_main.payments", "l": "src", "d": "r"}, {"n": "ods.payments", "l": "ods", "d": "w"}]}, {"n": "sp_ods_gl_entries", "w": 1, "r": 1, "t": [{"n": "erp_main.gl_entries", "l": "src", "d": "r"}, {"n": "ods.gl_entries", "l": "ods", "d": "w"}]}]}, {"id": "2-2", "name": "dw_fin", "kind": "JOB", "seq": 2, "color": "#6a1b9a", "procs": [{"n": "sp_fact_revenue_monthly", "w": 1, "r": 2, "t": [{"n": "dw.fact_revenue_monthly", "l": "dw", "d": "w"}, {"n": "ods.invoices", "l": "ods", "d": "r"}, {"n": "ods.payments", "l": "ods", "d": "r"}]}, {"n": "sp_dim_account", "w": 1, "r": 1, "t": [{"n": "dw.dim_account", "l": "dw", "d": "w"}, {"n": "ods.gl_entries", "l": "ods", "d": "r"}]}]}, {"id": "2-3", "name": "dm_fin", "kind": "JOB", "seq": 3, "color": "#e65100", "procs": [{"n": "sp_dm_finance_summary", "w": 1, "r": 2, "t": [{"n": "dm.finance_summary", "l": "dm", "d": "w"}, {"n": "dw.dim_account", "l": "dw", "d": "r"}, {"n": "dw.fact_revenue_monthly", "l": "dw", "d": "r"}]}, {"n": "sp_dm_ar_aging", "w": 1, "r": 2, "t": [{"n": "dm.ar_aging", "l": "dm", "d": "w"}, {"n": "dw.fact_revenue_monthly", "l": "dw", "d": "r"}, {"n": "ods.payments", "l": "ods", "d": "r"}]}]}]}], "tables": [{"n": "dm.ar_aging", "l": "dm", "w": ["sp_dm_ar_aging"], "r": []}, {"n": "dm.channel_report", "l": "dm", "w": ["sp_dm_channel_report"], "r": ["（SQL·data_check｜check_summary）"]}, {"n": "dm.customer_profile", "l": "dm", "w": ["sp_dm_customer_profile"], "r": ["（SQL·data_check｜check_summary）"]}, {"n": "dm.finance_summary", "l": "dm", "w": ["sp_dm_finance_summary"], "r": []}, {"n": "dm.inventory_age", "l": "dm", "w": ["sp_dm_inventory_age"], "r": []}, {"n": "dm.sales_summary", "l": "dm", "w": ["sp_dm_sales_summary"], "r": ["（SQL·data_check｜check_summary）"]}, {"n": "dm.stock_turnover", "l": "dm", "w": ["sp_dm_stock_turnover"], "r": []}, {"n": "dw.dim_account", "l": "dw", "w": ["sp_dim_account"], "r": ["sp_dm_finance_summary"]}, {"n": "dw.dim_customer", "l": "dw", "w": ["sp_dim_customer"], "r": ["sp_dm_customer_profile"]}, {"n": "dw.dim_product", "l": "dw", "w": ["sp_dim_product"], "r": ["sp_dm_sales_summary"]}, {"n": "dw.dim_supplier", "l": "dw", "w": ["sp_dim_supplier"], "r": ["sp_dm_stock_turnover"]}, {"n": "dw.dim_warehouse", "l": "dw", "w": ["sp_dim_warehouse"], "r": ["sp_dm_inventory_age"]}, {"n": "dw.fact_customer_rfm", "l": "dw", "w": ["sp_fact_customer_rfm"], "r": ["sp_dm_customer_profile"]}, {"n": "dw.fact_inventory_daily", "l": "dw", "w": ["sp_fact_inventory_daily"], "r": ["sp_dm_inventory_age", "sp_dm_stock_turnover"]}, {"n": "dw.fact_revenue_monthly", "l": "dw", "w": ["sp_fact_revenue_monthly"], "r": ["sp_dm_finance_summary", "sp_dm_ar_aging"]}, {"n": "dw.fact_sales_channel", "l": "dw", "w": ["sp_fact_sales_channel"], "r": ["sp_dm_channel_report"]}, {"n": "dw.fact_sales_daily", "l": "dw", "w": ["sp_fact_sales_daily"], "r": ["sp_dm_sales_summary"]}, {"n": "ods.channels", "l": "ods", "w": ["sp_ods_channels"], "r": ["sp_fact_sales_channel"]}, {"n": "ods.customers", "l": "ods", "w": ["sp_ods_customers"], "r": ["sp_fact_customer_rfm", "sp_dim_customer"]}, {"n": "ods.gl_entries", "l": "ods", "w": ["sp_ods_gl_entries"], "r": ["sp_dim_account"]}, {"n": "ods.inventory", "l": "ods", "w": ["sp_ods_inventory"], "r": ["sp_fact_inventory_daily"]}, {"n": "ods.invoices", "l": "ods", "w": ["sp_ods_invoices"], "r": ["sp_fact_revenue_monthly"]}, {"n": "ods.order_items", "l": "ods", "w": ["sp_ods_order_items"], "r": ["sp_fact_sales_daily"]}, {"n": "ods.orders", "l": "ods", "w": ["sp_ods_orders"], "r": ["sp_fact_sales_daily", "sp_fact_sales_channel", "sp_fact_customer_rfm"]}, {"n": "ods.payments", "l": "ods", "w": ["sp_ods_payments"], "r": ["sp_fact_revenue_monthly", "sp_dm_ar_aging"]}, {"n": "ods.products", "l": "ods", "w": ["sp_ods_products"], "r": ["sp_fact_sales_daily", "sp_dim_product"]}, {"n": "ods.regions", "l": "ods", "w": ["sp_ods_regions"], "r": ["sp_dim_customer"]}, {"n": "ods.stock_moves", "l": "ods", "w": ["sp_ods_stock_moves"], "r": ["sp_fact_inventory_daily"]}, {"n": "ods.suppliers", "l": "ods", "w": ["sp_ods_suppliers"], "r": ["sp_dim_supplier"]}, {"n": "ods.warehouses", "l": "ods", "w": ["sp_ods_warehouses"], "r": ["sp_dim_warehouse"]}, {"n": "erp_main.channels", "l": "src", "w": [], "r": ["sp_ods_channels"]}, {"n": "erp_main.customers", "l": "src", "w": [], "r": ["sp_ods_customers"]}, {"n": "erp_main.gl_entries", "l": "src", "w": [], "r": ["sp_ods_gl_entries"]}, {"n": "erp_main.inventory", "l": "src", "w": [], "r": ["sp_ods_inventory"]}, {"n": "erp_main.invoices", "l": "src", "w": [], "r": ["sp_ods_invoices"]}, {"n": "erp_main.order_items", "l": "src", "w": [], "r": ["sp_ods_order_items"]}, {"n": "erp_main.orders", "l": "src", "w": [], "r": ["sp_ods_orders"]}, {"n": "erp_main.payments", "l": "src", "w": [], "r": ["sp_ods_payments"]}, {"n": "erp_main.products", "l": "src", "w": [], "r": ["sp_ods_products"]}, {"n": "erp_main.regions", "l": "src", "w": [], "r": ["sp_ods_regions"]}, {"n": "erp_main.stock_moves", "l": "src", "w": [], "r": ["sp_ods_stock_moves"]}, {"n": "erp_main.suppliers", "l": "src", "w": [], "r": ["sp_ods_suppliers"]}, {"n": "erp_main.warehouses", "l": "src", "w": [], "r": ["sp_ods_warehouses"]}], "edges": [[36, 23, "sp_ods_orders"], [35, 22, "sp_ods_order_items"], [31, 18, "sp_ods_customers"], [38, 25, "sp_ods_products"], [30, 17, "sp_ods_channels"], [39, 26, "sp_ods_regions"], [23, 16, "sp_fact_sales_daily"], [22, 16, "sp_fact_sales_daily"], [25, 16, "sp_fact_sales_daily"], [23, 15, "sp_fact_sales_channel"], [17, 15, "sp_fact_sales_channel"], [18, 12, "sp_fact_customer_rfm"], [23, 12, "sp_fact_customer_rfm"], [25, 9, "sp_dim_product"], [18, 8, "sp_dim_customer"], [26, 8, "sp_dim_customer"], [16, 5, "sp_dm_sales_summary"], [9, 5, "sp_dm_sales_summary"], [15, 1, "sp_dm_channel_report"], [12, 2, "sp_dm_customer_profile"], [8, 2, "sp_dm_customer_profile"], [33, 20, "sp_ods_inventory"], [42, 29, "sp_ods_warehouses"], [41, 28, "sp_ods_suppliers"], [40, 27, "sp_ods_stock_moves"], [20, 13, "sp_fact_inventory_daily"], [27, 13, "sp_fact_inventory_daily"], [29, 11, "sp_dim_warehouse"], [28, 10, "sp_dim_supplier"], [13, 4, "sp_dm_inventory_age"], [11, 4, "sp_dm_inventory_age"], [13, 6, "sp_dm_stock_turnover"], [10, 6, "sp_dm_stock_turnover"], [34, 21, "sp_ods_invoices"], [37, 24, "sp_ods_payments"], [32, 19, "sp_ods_gl_entries"], [21, 14, "sp_fact_revenue_monthly"], [24, 14, "sp_fact_revenue_monthly"], [19, 7, "sp_dim_account"], [14, 3, "sp_dm_finance_summary"], [7, 3, "sp_dm_finance_summary"], [14, 0, "sp_dm_ar_aging"], [24, 0, "sp_dm_ar_aging"]], "procJobs": {"sp_ods_orders": [["sync_sales_daily", "ods_sync", 1]], "sp_ods_order_items": [["sync_sales_daily", "ods_sync", 1]], "sp_ods_customers": [["sync_sales_daily", "ods_sync", 1]], "sp_ods_products": [["sync_sales_daily", "ods_sync", 1]], "sp_ods_channels": [["sync_sales_daily", "ods_sync", 1]], "sp_ods_regions": [["sync_sales_daily", "ods_sync", 1]], "sp_fact_sales_daily": [["sync_sales_daily", "dw_calc", 2]], "sp_fact_sales_channel": [["sync_sales_daily", "dw_calc", 2]], "sp_fact_customer_rfm": [["sync_sales_daily", "dw_calc", 2]], "sp_dim_product": [["sync_sales_daily", "dw_calc", 2]], "sp_dim_customer": [["sync_sales_daily", "dw_calc", 2]], "sp_dm_sales_summary": [["sync_sales_daily", "dm_load", 3]], "sp_dm_channel_report": [["sync_sales_daily", "dm_load", 3]], "sp_dm_customer_profile": [["sync_sales_daily", "dm_load", 3]], "（SQL·data_check｜check_summary）": [["sync_sales_daily", "data_check", 4]], "sp_ods_inventory": [["sync_inventory_daily", "ods_sync_inv", 1]], "sp_ods_warehouses": [["sync_inventory_daily", "ods_sync_inv", 1]], "sp_ods_suppliers": [["sync_inventory_daily", "ods_sync_inv", 1]], "sp_ods_stock_moves": [["sync_inventory_daily", "ods_sync_inv", 1]], "sp_fact_inventory_daily": [["sync_inventory_daily", "dw_inv", 2]], "sp_dim_warehouse": [["sync_inventory_daily", "dw_inv", 2]], "sp_dim_supplier": [["sync_inventory_daily", "dw_inv", 2]], "sp_dm_inventory_age": [["sync_inventory_daily", "dm_inv", 3]], "sp_dm_stock_turnover": [["sync_inventory_daily", "dm_inv", 3]], "sp_ods_invoices": [["sync_finance_monthly", "ods_fin", 1]], "sp_ods_payments": [["sync_finance_monthly", "ods_fin", 1]], "sp_ods_gl_entries": [["sync_finance_monthly", "ods_fin", 1]], "sp_fact_revenue_monthly": [["sync_finance_monthly", "dw_fin", 2]], "sp_dim_account": [["sync_finance_monthly", "dw_fin", 2]], "sp_dm_finance_summary": [["sync_finance_monthly", "dm_fin", 3]], "sp_dm_ar_aging": [["sync_finance_monthly", "dm_fin", 3]]}};
+const JOB_H = 40, JOB_GAP = 10, PROC_H = 24, PROC_GAP = 8, TBL_H = 22, TBL_GAP = 5;
+const X = {job: 110, proc: 500};
+const PROC_COLW = 344, PROC_MAX = 34, TBL_COLW = 270;
+let selJob = null, selProc = null, z = 1, tx = 0, ty = 0, showRead = true;
+
+const stage = document.getElementById('stage'), svg = document.getElementById('edges');
+const cols = document.getElementById('cols');
+const jobs = []; D.chains.forEach(c => c.jobs.forEach(j => jobs.push(j)));
+const allTables = {};
+jobs.forEach(j => j.procs.forEach(p => p.t.forEach(t => {
+  const e = allTables[t.n] || (allTables[t.n] = {n: t.n, l: t.l, jobs: new Set(), procs: []});
+  e.jobs.add(j.name); if (!e.procs.includes(p.n)) e.procs.push(p.n);
+})));
+// 过程 → (表 → 方向) 索引
+const ptMap = new Map();
+jobs.forEach(j => j.procs.forEach(p => {
+  const m = ptMap.get(p.n) || new Map();
+  (p.t || []).forEach(t => m.set(t.n, t.d));
+  ptMap.set(p.n, m);
+}));
+
+function jobById(id) { return jobs.find(j => j.id === id); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ---------- 渲染 ---------- */
+const HINT_JOB = document.getElementById('hint') ? document.getElementById('hint').textContent : '';
+function render() {
+  document.getElementById('ribbon').style.display = 'none';
+  document.getElementById('focusPanel').style.display = 'none';
+  cols.style.right = '0';
+  document.getElementById('hint').textContent = HINT_JOB;
+  stage.querySelectorAll('.node,.pill,.chead,.chainlab,.grp').forEach(n => n.remove());
+  svg.innerHTML = '';
+  const job = selJob ? jobById(selJob) : null;
+  const procs = job ? job.procs : [];
+  const tblMap = new Map();
+  if (job) {
+    procs.forEach(p => (p.t || []).forEach(t => {
+      const e = tblMap.get(t.n) || {n: t.n, l: t.l, w: new Set(), r: new Set()};
+      if (t.d.indexOf('w') >= 0) e.w.add(p.n);
+      if (t.d.indexOf('r') >= 0) e.r.add(p.n);
+      tblMap.set(t.n, e);
+    }));
+  }
+  // 表分组：源系统 / ODS / DW / DM / 其他
+  const order = ['src', 'ods', 'dw', 'dm', 'his', 'misc'];
+  const tbls = [...tblMap.values()].sort((a, b) => order.indexOf(a.l) - order.indexOf(b.l) || a.n.localeCompare(b.n));
+
+  // 列标题（表列起点依赖过程列宽，稍后补）
+  hdr('① Kettle 调度作业（按执行顺序）', X.job, 14);
+  hdr('② 用到的存储过程', X.proc, 14);
+  D.chains.forEach(c => {
+    const j0 = c.jobs.find(j => jobs.includes(j));
+    if (!j0) return;
+    const lab = document.createElement('div');
+    lab.className = 'chainlab';
+    lab.style.left = (X.job - 96) + 'px';
+    lab.style.top = (jobY(j0) - 26) + 'px';
+    lab.textContent = '● ' + c.name + '　' + c.bat;
+    lab.style.color = j0.color;
+    stage.appendChild(lab);
+  });
+
+  // 作业节点
+  jobs.forEach(j => {
+    const n = document.createElement('div');
+    n.className = 'node job' + (selJob === j.id ? ' sel' : (selJob ? ' dim' : ''));
+    n.style.left = X.job + 'px'; n.style.top = jobY(j) + 'px';
+    n.style.width = '330px'; n.style.height = JOB_H + 'px';
+    const nproc = j.procs.filter(p => p.n.indexOf('（SQL·') !== 0).length;
+    const nstep = j.procs.length - nproc;
+    n.innerHTML = '<span class="bar" style="background:' + j.color + '"></span>' +
+      '<b style="font-size:11px;color:' + j.color + '">' + String(j.seq).padStart(2, '0') + '</b>' +
+      '<span class="t" title="' + esc(j.name) + '">' + esc(j.name) + '</span>' +
+      '<span class="m">' + nproc + ' 过程' + (nstep ? ' + ' + nstep + ' 步骤' : '') + '</span>';
+    n.onclick = e => { e.stopPropagation(); selJob = (selJob === j.id ? null : j.id); selProc = null; render(); };
+    n.onmouseenter = e => tip('作业：' + j.name + '<br>存储过程 ' + nproc + ' 个' + (nstep ? ' · SQL 步骤 ' + nstep + ' 个' : '') +
+      ' · 涉及表 ' + new Set(j.procs.flatMap(p => (p.t || []).map(t => t.n))).size + ' 张', e);
+    n.onmousemove = moveTip; n.onmouseleave = hideTip;
+    stage.appendChild(n);
+  });
+
+  // 过程节点（列数自适应，避免纵向过长）
+  const nPC = procs.length <= PROC_MAX ? 1 : (procs.length <= PROC_MAX * 2 ? 2 : 3);
+  const perPC = Math.max(1, Math.ceil(procs.length / nPC));
+  let py = 0;
+  if (!job) {
+    const big = document.createElement('div');
+    big.className = 'node big'; big.style.left = X.proc + 'px'; big.style.top = '40px';
+    big.style.width = '340px'; big.style.height = '60px';
+    big.textContent = '← 点击左侧任一作业，展开它调用的存储过程';
+    stage.appendChild(big);
+  } else {
+    procs.forEach((p, i) => {
+      const ci = Math.floor(i / perPC), ri = i % perPC;
+      const px = X.proc + ci * PROC_COLW, pyy = ri * (PROC_H + PROC_GAP);
+      const n = document.createElement('div');
+      n.className = 'node proc' + (selProc === p.n ? ' sel' : '');
+      n.style.left = px + 'px'; n.style.top = pyy + 'px';
+      n.style.width = '330px'; n.style.height = PROC_H + 'px';
+      n.innerHTML = '<span class="bar" style="background:' + job.color + '"></span>' +
+        '<span class="t" title="' + esc(p.n) + '">' + esc(p.n) + '</span>' +
+        '<span class="m">写' + p.w + ' 读' + p.r + '</span>';
+      n.onclick = e => { e.stopPropagation(); selProc = (selProc === p.n ? null : p.n); render(); };
+      n.onmouseenter = e => tip('过程：' + p.n + '<br>写入 ' + p.w + ' 张表，读取 ' + p.r + ' 张表', e);
+      n.onmousemove = moveTip; n.onmouseleave = hideTip;
+      stage.appendChild(n);
+      const dimEdge = selProc && selProc !== p.n;
+      edge(X.job + 330, jobY(job) + JOB_H / 2, px, pyy + PROC_H / 2, job.color,
+           dimEdge ? 0.9 : 1.7, false, dimEdge);
+      p.__x = px; p.__y = pyy;
+      py = Math.max(py, pyy + PROC_H + PROC_GAP);
+    });
+  }
+  const tblX = X.proc + nPC * PROC_COLW + 46;
+  hdr('③ 过程读写的表（按数据层分组）', tblX, 14);
+
+  // 表节点（最多 3 列自适应，避免纵向过长）
+  const visible = selProc ? tbls.filter(t => t.w.has(selProc) || t.r.has(selProc)) : tbls;
+  const nCols = visible.length <= 30 ? 1 : (visible.length <= 90 ? 2 : (visible.length <= 180 ? 3 : 4));
+  const perCol = Math.max(1, Math.ceil(visible.length / nCols));
+  const colY = new Array(nCols).fill(0);
+  const colLast = new Array(nCols).fill(null);
+  visible.forEach((t, i) => {
+    const ci = Math.floor(i / perCol);
+    const x = tblX + ci * TBL_COLW;
+    if (colLast[ci] !== t.l) {
+      if (colLast[ci] !== null) colY[ci] += 14;
+      const g = document.createElement('div');
+      g.className = 'grp'; g.style.left = x + 'px'; g.style.top = colY[ci] + 'px';
+      g.textContent = LNAME[t.l] || t.l;
+      stage.appendChild(g);
+      colY[ci] += 15;
+      colLast[ci] = t.l;
+    }
+    const y = colY[ci];
+    const p = document.createElement('div');
+    p.className = 'pill s-' + t.l + (selProc && (t.w.has(selProc) || t.r.has(selProc)) ? ' sel' : '');
+    p.style.left = x + 'px'; p.style.top = y + 'px';
+    p.innerHTML = '<span class="sm" style="background:' + (t.w.size ? '#e65100' : '#9aa5b1') + '"></span>' + esc(t.n);
+    p.onmouseenter = e => tip(t.n + '<br>写入过程：' + ([...t.w].join('、') || '—') + '<br>读取过程：' + ([...t.r].join('、') || '—') + '<br><i style="color:#9fd0ff">点击 → 表反查（影响分析）</i>', e);
+    p.onmousemove = moveTip; p.onmouseleave = hideTip;
+    p.onclick = e => { e.stopPropagation(); focusTable(t.n); };
+    stage.appendChild(p);
+    if (job) {
+      procs.forEach(pr => {
+        const m = ptMap.get(pr.n);
+        const d = m ? m.get(t.n) : null;
+        if (!d) return;
+        const isW = d.indexOf('w') >= 0, isR = d.indexOf('r') >= 0;
+        if (!showRead && !isW) return;
+        const strong = selProc ? (pr.n === selProc) : true;
+        if (selProc && !strong) return;
+        edge(pr.__x + 330, pr.__y + PROC_H / 2, x, y + TBL_H / 2 - 1.5,
+             isW ? job.color : '#b3bfcc', isW ? (strong ? 1.6 : 0.9) : 0.9, !isW, !strong);
+      });
+    }
+    colY[ci] += TBL_H + TBL_GAP;
+  });
+
+  const tblH = Math.max(...colY, 0);
+  const H = Math.max(tblH, py, jobY(jobs[jobs.length - 1]) + 120, 480);
+  const W = tblX + nCols * TBL_COLW + 20;
+  stage.style.height = H + 'px';
+  stage.style.width = W + 'px';
+  svg.setAttribute('width', W); svg.setAttribute('height', H);
+  fit();
+}
+
+const LNAME = {src: '源系统 / 外部库', ods: 'ODS 层', dw: 'DW 层', dm: 'DM 层', his: '历史库', misc: '其他'};
+function hdr(text, x, y) { const d = document.createElement('div'); d.className = 'chead'; d.style.left = x + 'px'; d.style.top = (y - 34) + 'px'; d.textContent = text; stage.appendChild(d); }
+function jobY(j) { let y = 46; jobs.forEach(x => { if (x === j) return; if (jobs.indexOf(x) < jobs.indexOf(j)) y += JOB_H + JOB_GAP; }); return y; }
+function lay(t) {
+  // 按库名前缀推断数据层（与后端 layer_of 一致，项目无关）：dwd/dws/dw→dw, ods/stg/raw/landing→ods, dm/ads→dm, his→his；其余→src
+  if (t.indexOf('.') < 0) return 'misc';
+  const s = t.split('.')[0];
+  const RULES = [['dwd','dw'],['dws','dw'],['dw','dw'],['ods','ods'],['dm','dm'],['ads','dm'],
+                 ['his','his'],['stg','ods'],['stage','ods'],['raw','ods'],['landing','ods']];
+  for (const kv of RULES) { if (s === kv[0] || s.indexOf(kv[0] + '_') === 0) return kv[1]; }
+  return 'src'; }
+function procsData(n) { for (const c of D.chains) for (const j of c.jobs) for (const p of j.procs) if (p.n === n) return p; return {}; }
+
+function edge(x1, y1, x2, y2, color, w, dash, faint) {
+  const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  const mx = (x1 + x2) / 2;
+  p.setAttribute('d', `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`);
+  p.setAttribute('fill', 'none');
+  p.setAttribute('stroke', color);
+  p.setAttribute('stroke-width', w);
+  p.setAttribute('opacity', faint ? 0.28 : 1);
+  if (dash) p.setAttribute('stroke-dasharray', '4 3');
+  svg.appendChild(p);
+}
+
+/* ---------- 交互 ---------- */
+function place() { stage.style.transform = `translate(${tx}px, ${ty}px) scale(${z})`; }
+function fit() {
+  const r = cols.getBoundingClientRect();
+  const H = parseFloat(stage.style.height) || 1, W = parseFloat(stage.style.width) || 1;
+  const nz = Math.min(1, (r.height - 60) / H, (r.width - 40) / W);
+  z = Math.max(0.3, nz);
+  tx = 24;
+  ty = Math.max(16, (r.height - H * z) / 2);
+  place();
+}
+function reset() { selJob = null; selProc = null; focus = null; render(); }
+let drag = false, sx = 0, sy = 0, bx = 0, by = 0, moved = false;
+cols.addEventListener('mousedown', e => { drag = true; moved = false; sx = e.clientX; sy = e.clientY; bx = tx; by = ty; cols.classList.add('pan'); });
+window.addEventListener('mousemove', e => {
+  if (!drag) return;
+  if (Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) > 4) moved = true;
+  tx = bx + e.clientX - sx; ty = by + e.clientY - sy; place();
+});
+window.addEventListener('mouseup', () => { drag = false; cols.classList.remove('pan'); });
+cols.addEventListener('wheel', e => {
+  e.preventDefault();
+  const f = e.deltaY < 0 ? 1.1 : 1 / 1.1, nz = Math.min(2, Math.max(.25, z * f));
+  const r = cols.getBoundingClientRect(), cx = e.clientX - r.left, cy = e.clientY - r.top;
+  tx = cx - (cx - tx) * (nz / z); ty = cy - (cy - ty) * (nz / z);
+  z = nz; place();
+}, {passive: false});
+function zoomBy(f) {
+  const r = cols.getBoundingClientRect(), cx = r.width / 2, cy = r.height / 2;
+  const nz = Math.min(2, Math.max(.25, z * f));
+  tx = cx - (cx - tx) * (nz / z); ty = cy - (cy - ty) * (nz / z); z = nz; place();
+}
+document.getElementById('showRead').onchange = e => {
+  showRead = e.target.checked;
+  if (document.getElementById('ribbon').style.display !== 'none') renderFocus(); else render();
+};
+document.getElementById('q').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const kw = e.target.value.trim().toLowerCase();
+  if (!kw) { selJob = null; selProc = null; render(); return; }
+  for (const c of D.chains) for (const j of c.jobs) {
+    const hitJob = j.name.toLowerCase().includes(kw);
+    const hitProc = j.procs.find(p => p.n.includes(kw));
+    const hitTbl = j.procs.find(p => (p.t || []).some(t => t.n.includes(kw)));
+    if (hitProc || hitTbl || hitJob) {
+      selJob = j.id; selProc = hitProc ? hitProc.n : (hitTbl ? hitTbl.n : null);
+      render(); tx = 10; ty = 10; z = 1; place();
+      flash(hitProc ? hitProc.n : (hitTbl ? hitTbl.n : j.name));
+      return;
+    }
+  }
+  alert('未找到：' + kw);
+});
+function flash(text) {
+  const el = [...stage.querySelectorAll('.node,.pill')].find(n => n.textContent.includes(text));
+  if (el) { el.style.outline = '3px solid #ff8f00'; setTimeout(() => el.style.outline = '', 1600); }
+}
+const tipEl = document.getElementById('tip');
+function tip(html, e) { tipEl.innerHTML = html; tipEl.style.opacity = 1; moveTip(e); }
+function moveTip(e) { tipEl.style.left = Math.min(e.clientX + 14, innerWidth - 430) + 'px'; tipEl.style.top = (e.clientY + 16) + 'px'; }
+function hideTip() { tipEl.style.opacity = 0; }
+
+/* ================= 表反查模式：点第三列任意表进入 ================= */
+const TBL = D.tables || [], EDG = D.edges || [];
+const tIdx = new Map(TBL.map((t, i) => [t.n, i]));
+let focus = null, deep = false;
+const upAdj = new Map(), dnAdj = new Map();
+EDG.forEach(([s, d, p]) => {
+  if (!dnAdj.has(s)) dnAdj.set(s, []);
+  dnAdj.get(s).push([d, p]);
+  if (!upAdj.has(d)) upAdj.set(d, []);
+  upAdj.get(d).push([s, p]);
+});
+function focusTable(name) { const i = tIdx.get(name); if (i == null) return; focus = i; renderFocus(); }
+function layerBFS(start, dir) {
+  const out = [], seen = new Set([start]);
+  const maxK = deep ? 3 : 1;
+  let fr = [start];
+  for (let k = 0; k < maxK; k++) {
+    const map = new Map(), nx = [];
+    fr.forEach(n => ((dir === 'up' ? upAdj : dnAdj).get(n) || []).forEach(([m, p]) => {
+      if (seen.has(m)) return;
+      if (!map.has(m)) map.set(m, new Set());
+      map.get(m).add(p);
+    }));
+    if (!map.size) break;
+    const arr = [...map.entries()];
+    arr.forEach(([m]) => { seen.add(m); nx.push(m); });
+    out.push(arr); fr = nx;
+  }
+  return out;
+}
+function fhdr(text, x, y) {
+  const d = document.createElement('div'); d.className = 'chead';
+  d.style.left = x + 'px'; d.style.top = y + 'px'; d.textContent = text;
+  stage.appendChild(d);
+}
+function fPill(ti, x, y) {
+  const el = document.createElement('div');
+  el.className = 'pill s-' + TBL[ti].l;
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+  el.style.width = '330px'; el.style.height = '22px';
+  el.style.overflow = 'hidden'; el.style.textOverflow = 'ellipsis';
+  el.textContent = TBL[ti].n;
+  el.onclick = e => { e.stopPropagation(); focus = ti; renderFocus(); };
+  el.onmouseenter = e => tip(TBL[ti].n + '<br>写入 ' + TBL[ti].w.length + ' 个过程 · 读取 ' + TBL[ti].r.length + ' 个过程<br><i style="color:#9fd0ff">点击继续下钻</i>', e);
+  el.onmousemove = moveTip; el.onmouseleave = hideTip;
+  stage.appendChild(el);
+}
+function fProc(p, dir, x, y) {
+  const el = document.createElement('div');
+  el.className = 'node proc';
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+  el.style.width = '340px'; el.style.height = '24px';
+  el.innerHTML = '<span class="bar" style="background:' + (dir === '写' ? '#e65100' : '#93a5b8') + '"></span>' +
+    '<span class="t" title="' + esc(p) + '">' + esc(p) + '</span><span class="m">' + dir + '本表</span>';
+  el.onmouseenter = e => tip(p + '（' + dir + '本表）', e);
+  el.onmousemove = moveTip; el.onmouseleave = hideTip;
+  stage.appendChild(el);
+}
+function fMore(x, y, n) {
+  const d = document.createElement('div'); d.className = 'pill';
+  d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.color = '#8a95a1';
+  d.textContent = '还有 ' + n + ' 张…'; stage.appendChild(d);
+}
+function pathSamples(finals) {
+  const prev = new Map([[focus, null]]);
+  let fr = [focus], depth = 0;
+  while (fr.length && depth < 3) {
+    const nx = [];
+    fr.forEach(n => (dnAdj.get(n) || []).forEach(([d, p]) => {
+      if (prev.has(d)) return;
+      prev.set(d, {from: n, proc: p}); nx.push(d);
+    }));
+    fr = nx; depth++;
+  }
+  return finals.filter(f => prev.has(f)).map(f => {
+    const chain = []; let n = f;
+    while (prev.get(n)) { const st = prev.get(n); chain.unshift({t: n, p: st.proc}); n = st.from; }
+    chain.unshift({t: n, p: null});
+    return chain.map((x, i) => (i ? ' <span style="color:#8a95a1">→</span> ' : '') +
+      '<b>' + esc(x.t.split('.').pop()) + '</b>' +
+      (x.p ? ' <span style="color:#8a95a1;font-size:11px">(' + esc(x.p.replace(/^ods\./, '')) + ')</span>' : '')).join('');
+  });
+}
+function renderFocus() {
+  stage.querySelectorAll('.node,.pill,.chead,.chainlab,.grp').forEach(n => n.remove());
+  svg.innerHTML = '';
+  const t = TBL[focus];
+  const upL = layerBFS(focus, 'up'), dnL = layerBFS(focus, 'down');
+  const TW = 330, PW = 340, TH = 22, PH = 24, GAP = 6;
+  const XU = 20, XP = 400, XD = 800;
+  const posT = new Map(), posP = new Map();
+  const UPNAME = ['① 直接来源（本表就是由这些表加工来的）', '② 来源的上一层（隔 2 步过程）', '③ 更远的源头（隔 3 步过程）'];
+  const DNNAME = ['① 直接下游（读本表加工出来的表）', '② 再下一层（隔 2 步过程）', '③ 更靠下游（隔 3 步过程）'];
+  let y1 = 30;
+  upL.forEach((layer, k) => {
+    fhdr('上游 ' + UPNAME[k] + '：' + layer.length + ' 张', XU, y1); y1 += 22;
+    layer.slice(0, 26).forEach(([ti]) => { fPill(ti, XU, y1); posT.set(ti, y1); y1 += TH + GAP; });
+    if (layer.length > 26) { fMore(XU, y1, layer.length - 26); y1 += 24; }
+    y1 += 16;
+  });
+  let y2 = 30;
+  fhdr('写入本表的过程（' + t.w.length + '）', XP, y2); y2 += 22;
+  t.w.forEach(p => { fProc(p, '写', XP, y2); posP.set(p, y2); y2 += PH + GAP; });
+  y2 += 18;
+  fhdr('读取本表的过程（' + t.r.length + '）', XP, y2); y2 += 22;
+  t.r.forEach(p => { fProc(p, '读', XP, y2); posP.set(p, y2); y2 += PH + GAP; });
+  let y3 = 30;
+  dnL.forEach((layer, k) => {
+    fhdr('下游 ' + DNNAME[k] + '：' + layer.length + ' 张', XD, y3); y3 += 22;
+    layer.slice(0, 26).forEach(([ti]) => { fPill(ti, XD, y3); posT.set(ti, y3); y3 += TH + GAP; });
+    if (layer.length > 26) { fMore(XD, y3, layer.length - 26); y3 += 24; }
+    y3 += 16;
+  });
+  const up1 = new Map((upL[0] || []).map(([ti, ps]) => [ti, ps]));
+  const dn1 = new Map((dnL[0] || []).map(([ti, ps]) => [ti, ps]));
+  t.w.forEach(p => {
+    const yy = posP.get(p); if (yy == null) return;
+    up1.forEach((ps, ti) => {
+      if (!ps.has(p)) return; const ty2 = posT.get(ti); if (ty2 == null) return;
+      edge(XU + TW, ty2 + 11, XP, yy + 12, '#8fb3d9', 1.1, false, false);
+    });
+  });
+  t.r.forEach(p => {
+    const yy = posP.get(p); if (yy == null) return;
+    dn1.forEach((ps, ti) => {
+      if (!ps.has(p)) return; const ty2 = posT.get(ti); if (ty2 == null) return;
+      edge(XP + PW, yy + 12, XD, ty2 + 11, '#e0a06a', 1.1, false, false);
+    });
+  });
+  const W = XD + TW + 30, H = Math.max(y1, y2, y3) + 30;
+  stage.style.width = W + 'px'; stage.style.height = H + 'px';
+  svg.setAttribute('width', W); svg.setAttribute('height', H);
+  const upN = upL.reduce((a, l) => a + l.length, 0), dnN = dnL.reduce((a, l) => a + l.length, 0);
+  document.getElementById('ribbon').style.display = 'flex';
+  document.getElementById('focusPanel').style.display = 'block';
+  document.getElementById('hint').textContent = '表反查：① 直接来源 → 本表 → ① 直接下游' + (deep ? '；②③ 是更远的层级（只列出、不连线）' : '；想看更远的源头，点「展开更远 2 层」') + '｜层数 = 中间隔了几次过程加工';
+  cols.style.right = '322px';
+  document.getElementById('rbName').textContent = '当前表：' + t.n;
+  document.getElementById('rbLay').textContent = LNAME[t.l] || t.l;
+  document.getElementById('deepBtn').textContent = deep ? '只看第 1 层' : '展开更远 2 层';
+  document.getElementById('rbStat').textContent = '写入 ' + t.w.length + ' · 读取 ' + t.r.length + ' 个过程　｜　上游 ' + upN + ' 张 · 下游 ' + dnN + ' 张';
+  renderFocusPanel(upL, dnL);
+  const r = cols.getBoundingClientRect();
+  z = Math.max(0.35, Math.min(1, (r.height - 150) / H, (r.width - 40) / W));
+  tx = 16; ty = 92;
+  place();
+}
+function renderFocusPanel(upL, dnL) {
+  const t = TBL[focus];
+  const upSet = new Set(), dnSet = new Set(), dnProcs = new Set();
+  upL.forEach(l => l.forEach(([i]) => upSet.add(i)));
+  dnL.forEach(l => l.forEach(([i, ps]) => { dnSet.add(i); ps.forEach(p => dnProcs.add(p)); }));
+  const jobMap = new Map();
+  const addJobs = ps => ps.forEach(p => (D.procJobs[p] || []).forEach(j => jobMap.set(j[0] + '|' + j[1], j)));
+  addJobs(t.w); addJobs(t.r); addJobs([...dnProcs]);
+  const jobsArr = [...jobMap.values()].sort((a, b) => String(a[0]).localeCompare(String(b[0])) || a[2] - b[2]);
+  const finals = [...dnSet].filter(i => !(dnAdj.get(i) || []).some(([d]) => dnSet.has(d) || d === focus));
+  const paths = pathSamples(finals.slice(0, 3));
+  const h = [];
+  h.push('<h2 style="font-size:12.5px;margin:0 0 8px;color:#12263f">影响分析</h2>');
+  h.push('<div class="kv"><span>直接被写入</span><b>' + t.w.length + ' 个过程</b></div>');
+  h.push('<div class="kv"><span>直接被读取</span><b>' + t.r.length + ' 个过程</b></div>');
+  h.push('<div class="kv"><span>上游表（3 层内）</span><b>' + upSet.size + ' 张</b></div>');
+  h.push('<div class="kv"><span>下游表（3 层内）</span><b>' + dnSet.size + ' 张</b></div>');
+  h.push('<div class="kv"><span>影响的过程</span><b>' + new Set([...t.w, ...t.r, ...dnProcs]).size + ' 个</b></div>');
+  h.push('<div class="kv"><span>涉及的调度作业</span><b>' + jobsArr.length + ' 个</b></div>');
+  if (dnProcs.size) h.push('<h3>影响的下游过程</h3><div class="chips">' + [...dnProcs].slice(0, 30).map(p => '<span class="chip proc">' + esc(p) + '</span>').join('') + '</div>');
+  if (jobsArr.length) h.push('<h3>受影响的作业（按执行顺序）</h3><div class="chips">' + jobsArr.map(j => '<span class="chip job" title="' + esc(j[0]) + '">' + (String(j[0]).indexOf('sfa') === 0 ? 'SFA ' : 'DMS ') + String(j[2]).padStart(2, '0') + ' ' + esc(j[1]) + '</span>').join('') + '</div>');
+  if (finals.length) h.push('<h3>最终产出表（' + finals.length + '）</h3><div class="chips">' + finals.slice(0, 12).map(i => '<span class="chip" data-t="' + esc(TBL[i].n) + '">' + esc(TBL[i].n.split('.').pop()) + '</span>').join('') + '</div>');
+  if (paths.length) h.push('<h3>影响路径</h3>' + paths.map(p => '<div style="font-size:11.5px;color:#41505f;line-height:1.75;margin-bottom:4px">' + p + '</div>').join(''));
+  if (dnProcs.size) h.push('<div class="warn">改动 / 延迟本表，会波及下游 ' + dnSet.size + ' 张表、' + dnProcs.size + ' 个过程、' + jobsArr.length + ' 个作业</div>');
+  h.push('<h3>层数怎么算？</h3><div style="font-size:11.5px;color:#7b8794;line-height:1.65">' +
+    '第 <b>1</b> 层 = 直接给本表供数（或直接读本表）的表；<br>' +
+    '第 <b>2</b> 层 = 给第 1 层表供数的表，以此类推；<br>' +
+    '每“跳”一层，中间都经过 1 个存储过程。</div>');
+  const box = document.getElementById('focusPanel');
+  box.innerHTML = h.join('');
+  box.querySelectorAll('.chip[data-t]').forEach(c => c.onclick = () => focusTable(c.dataset.t));
+}
+document.getElementById('backBtn').onclick = () => { focus = null; render(); };
+document.getElementById('deepBtn').onclick = () => { deep = !deep; renderFocus(); };
+
+document.getElementById('stat').textContent =
+  jobs.length + ' 个作业 · ' + new Set(jobs.flatMap(j => j.procs.map(p => p.n))).size + ' 个存储过程 · ' + Object.keys(allTables).length + ' 张表';
+render();
+</script></body></html>
