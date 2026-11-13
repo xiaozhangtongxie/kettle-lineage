@@ -17,15 +17,33 @@ agent_created: true
 - 回答「改这张表 / 改这个存储过程，会影响哪些下游表和作业」
 - 把链路交付成 Excel 台账、脑图大纲或可演示的网页
 
-## 30 秒上手
+## 快速开始
 
-手里有一个（或多个）调度 `bat`，直接：
+**默认就一条命令**——指向 Kettle 作业所在目录即可：
 
 ```bash
-python scripts/run_all.py --bat "路径/day_dms/sync_xxx.bat" --outdir output
+python scripts/run_all.py --bat-dir "路径/作业目录" --outdir output
 ```
 
-就这一条。产物在 `output/`：
+自动扫该目录下所有 `*.bat`（排除 `bak`/`copy`/`test`），每个 bat 成为一条链路，按 hops 真实执行顺序逐层展开。
+
+### 参数只按情况加一项
+
+| 情况 | 加什么 |
+|---|---|
+| 目录里一堆 bat（**最常见**） | 不用改，就用上面这条 |
+| 只关心某一个 bat | 把 `--bat-dir "目录"` 换成 `--bat "路径/xxx.bat"`（可重复多次） |
+| 有存储过程导出 | 加 `--dump "路径/过程导出.txt"` —— **强烈建议**，否则 `CALL` 只到过程名 |
+| 想先跳过自检看效果 | 末尾加 `--skip-test` |
+| 只要其中某一样产物 | 用文末「进阶：只重跑某一步」 |
+
+有过程导出时的完整命令：
+
+```bash
+python scripts/run_all.py --dump "路径/过程导出.txt" --bat-dir "路径/作业目录" --outdir output
+```
+
+产物在 `output/`：
 
 | 文件 | 内容 |
 |---|---|
@@ -33,20 +51,6 @@ python scripts/run_all.py --bat "路径/day_dms/sync_xxx.bat" --outdir output
 | `台账.xlsx` | 5 个 sheet：说明 / 作业明细 / 表反查 / 表级血缘 / 作业汇总 |
 | `大纲.txt` | Tab 缩进大纲，可直接导入百度脑图 / XMind / Obsidian |
 | `lineage.json` | 中间数据，改样式时不用重新解析 |
-
-**目录下有一堆 bat 时**，不用一个个列：
-
-```bash
-python scripts/run_all.py --bat-dir "路径/etl_main/data_sync_new" --outdir output
-```
-
-自动扫目录下所有 `*.bat`（排除 `bak`/`copy`/`test`），每个 bat 成为一条链路。
-
-**有存储过程导出时**（强烈建议，能把表血缘挖到底）：
-
-```bash
-python scripts/run_all.py --dump "路径/存储过程导出.txt" --bat-dir "路径" --outdir output
-```
 
 ## 输入准备
 
@@ -78,26 +82,29 @@ python scripts/run_all.py --dump "路径/存储过程导出.txt" --bat-dir "路�
 --no-schema-filter      # 彻底关掉库名校验（只看别名黑名单），结果会变宽
 ```
 
-## 调用方式
+## 进阶：只重跑某一步
 
-**方式 A：一键（推荐）**
+**首次调用不要用这一节**——上面的 `run_all.py` 已经把 抽取 → 自检 → 出图 → 出台账 全串好了。
 
-```bash
-python scripts/run_all.py --dump 过程导出.txt --bat-dir 作业目录 --outdir output [--expect expect.json]
-```
+只有两种情况才需要分步：
 
-依次完成：抽取 → 自检 → 交互图 → Excel + 大纲。**自检有 FAIL 会中断**，不产出错误数据。
-
-**方式 B：分步**（只重跑某一步时，避免重复解析大文件）
+1. 用户只要其中某一样产物（例如只改了前端样式，要重出 HTML，不想再解析几十 MB 过程导出）
+2. 某一步失败，需要单独排查
 
 ```bash
-python scripts/extract_lineage.py --dump 过程导出.txt --bat xxx.bat --out output/lineage.json
+# ① 抽取（唯一需要 dump + bat 的一步）
+python scripts/extract_lineage.py --dump 过程导出.txt --bat-dir 作业目录 --out output/lineage.json
+# ② 自检（可选）
 python scripts/selftest.py       --lineage output/lineage.json --dump 过程导出.txt
+# ③ 出图（改了 assets/template.html 后重跑这个）
 python scripts/render_html.py    --in output/lineage.json --out output/flow.html
+# ④ 台账 + 大纲（改了表头 / 列宽后重跑这个）
 python scripts/export_reports.py --in output/lineage.json --xlsx output/台账.xlsx --txt output/大纲.txt
 ```
 
-**方式 C：对话里调用**
+## 用户只要说一句话就行
+
+用户不需要记命令，直接用自然语言触发：
 
 - 「用 kettle-lineage 梳理 `D:/etl/data_sync_new` 下所有 bat 的血缘，输出 Excel 和交互图」
 - 「`dw.fact_daily_summary` 是谁产出的？看它的上游」

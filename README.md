@@ -39,17 +39,30 @@ git clone https://github.com/<your-name>/kettle-lineage.git ~/.workbuddy/skills/
 
 只要 Python 3.8+；导出 Excel 需要 `pandas` 或 `openpyxl`（`pip install openpyxl`）。
 
-## 30 秒上手
+## 快速开始
+
+**只需要一条命令**——指向 Kettle 作业所在的目录：
 
 ```bash
-# 最少：给一个调度 bat
-python scripts/run_all.py --bat "D:/etl/day_dms/sync_xxx.bat" --outdir output
-
-# 目录里有一堆 bat：自动全扫（排除 bak/copy/test）
 python scripts/run_all.py --bat-dir "D:/etl/data_sync_new" --outdir output
+```
 
-# 有存储过程导出：能把表血缘挖到底（强烈建议）
-python scripts/run_all.py --dump "D:/etl/procedures.txt" --bat-dir "D:/etl" --outdir output
+它会自动扫描该目录下所有调度 bat（跳过 bak/copy/test），按 Kettle 真实执行顺序逐层展开，然后输出下面 4 个文件。
+
+### 情况不一样？只换一个参数
+
+| 你的情况 | 怎么改 |
+|---|---|
+| 目录里有一堆 bat（**最常见**） | 就用上面那条，不用改 |
+| 只关心某一个 bat | 把 `--bat-dir "目录"` 换成 `--bat "路径/xxx.bat"`（可重复多次） |
+| 有存储过程导出文件 | 加一句 `--dump "路径/过程导出.txt"` —— **强烈建议**，能把血缘挖到表级 |
+| 想跳过自检先看效果 | 命令末尾加 `--skip-test` |
+| 只要其中某一样产物 | 用文末「进阶：只重跑某一步」 |
+
+有存储过程导出时，完整命令长这样：
+
+```bash
+python scripts/run_all.py --dump "D:/etl/procedures.txt" --bat-dir "D:/etl/data_sync_new" --outdir output
 ```
 
 产物在 `output/`：
@@ -84,16 +97,25 @@ python scripts/run_all.py --dump "D:/etl/procedures.txt" --bat-dir "D:/etl" --ou
 
 只有探测不到才需要 `--schema mydb` / `--allow-bare` / `--no-schema-filter`。
 
-## 分步调用
+## 进阶：只重跑某一步
+
+**首次使用请忽略这一节**——上面的 `run_all.py` 已经把抽取、自检、出图、出台账串好了。
+
+只有这两种情况才需要分步：
+
+1. **只想调样式 / 改 Excel 表头** → 改完重跑后两步就行，不必重新解析几十 MB 的过程导出
+2. **想单独看中间结果** → 直接查 `lineage.json` 里的原始数据
 
 ```bash
-python scripts/extract_lineage.py --dump procedures.txt --bat xxx.bat --out output/lineage.json
+# ① 抽取（唯一需要 dump + bat 的一步）
+python scripts/extract_lineage.py --dump procedures.txt --bat-dir 目录 --out output/lineage.json
+# ② 自检（可选）
 python scripts/selftest.py       --lineage output/lineage.json --dump procedures.txt
+# ③ 出图（改了模板时重跑这个）
 python scripts/render_html.py    --in output/lineage.json --out output/flow.html
+# ④ 出台账 + 大纲（改了表头时重跑这个）
 python scripts/export_reports.py --in output/lineage.json --xlsx output/台账.xlsx --txt output/大纲.txt
 ```
-
-`lineage.json` 是中间产物：改前端样式或表头时只需重跑 ③④，不用再解析几十 MB 的过程导出。
 
 ## 自检
 
